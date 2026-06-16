@@ -236,15 +236,36 @@ export default function Home() {
     localStorage.setItem("savedOpportunities", JSON.stringify(updatedSaved));
   };
 
-  const handleSaveEmail = () => {
+  const handleSaveEmail = async () => {
     if (emailToSave && isValidEmail(emailToSave)) {
       setSavedEmailSuccess(true);
-      fetchSavedOpportunities(emailToSave);
       localStorage.setItem("radar_email", emailToSave);
 
+      // Sync existing local saves to the backend
       if (savedOpportunities.length > 0) {
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+          await Promise.all(
+            savedOpportunities.map((opp) =>
+              fetch(`${apiUrl}/api/v1/save-opportunity`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  email: emailToSave,
+                  url: opp.link,
+                  status: "saved",
+                }),
+              })
+            )
+          );
+        } catch (e) {
+          console.error("Failed to sync local saves", e);
+        }
+        
         handleTriggerEmail(emailToSave);
       }
+
+      fetchSavedOpportunities(emailToSave);
     } else {
       alert("Please enter a valid email address.");
     }
