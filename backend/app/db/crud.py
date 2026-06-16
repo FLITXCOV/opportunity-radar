@@ -61,9 +61,19 @@ def link_user_opportunity(db: Session, user_id: str, opp_id: str, why_relevant: 
 
 def update_user_opportunity_status(db: Session, email: str, url: str, status: str) -> bool:
     user = db.query(models.User).filter(models.User.email == email).first()
+    if not user:
+        user = models.User(
+            id=str(uuid.uuid4()),
+            email=email,
+            branch="Unknown", year="Unknown", interests="[]", goal="Unknown"
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
     opp = db.query(models.Opportunity).filter(models.Opportunity.url == url).first()
     
-    if not user or not opp:
+    if not opp:
         return False
         
     link = db.query(models.UserOpportunity).filter(
@@ -75,7 +85,17 @@ def update_user_opportunity_status(db: Session, email: str, url: str, status: st
         link.status = status
         db.commit()
         return True
-    return False
+    else:
+        link = models.UserOpportunity(
+            id=str(uuid.uuid4()),
+            user_id=user.id,
+            opportunity_id=opp.id,
+            why_relevant="Saved via UI",
+            status=status
+        )
+        db.add(link)
+        db.commit()
+        return True
 
 def get_user_opportunities(db: Session, email: str):
     user = db.query(models.User).filter(models.User.email == email).first()
