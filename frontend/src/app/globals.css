@@ -1,26 +1,398 @@
 @import "tailwindcss";
 
+/* ─── 2026 DESIGN SYSTEM: TACTILE BRUTALISM + LIQUID GLASS ─── */
+
+/* ── Palette ── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-primary: #070b14;
+  --bg-surface: rgba(12, 17, 32, 0.55);
+  --bg-surface-hover: rgba(16, 22, 42, 0.7);
+  --bg-input: rgba(8, 12, 24, 0.8);
+  --border-subtle: rgba(99, 102, 241, 0.08);
+  --border-active: rgba(16, 185, 129, 0.25);
+  --border-hover: rgba(99, 102, 241, 0.18);
+  --accent-emerald: #10b981;
+  --accent-indigo: #6366f1;
+  --accent-cyan: #22d3ee;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+  --text-muted: #475569;
+  --text-ghost: #334155;
+  --background: var(--bg-primary);
+  --foreground: var(--text-primary);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Base ── */
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  background: var(--bg-primary);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter, 'Inter', system-ui, -apple-system, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── CSS Noise / Film Grain Overlay ── */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.028;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 128px 128px;
+}
+
+/* Subtle radial ambient glow behind the page */
+body::after {
+  content: "";
+  position: fixed;
+  top: -20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120vw;
+  height: 60vh;
+  background: radial-gradient(ellipse at center, rgba(99, 102, 241, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Liquid Glass Panel ── */
+.glass-panel {
+  background: var(--bg-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  transition: background 0.4s ease,
+              backdrop-filter 0.4s ease,
+              border-color 0.4s ease;
+}
+
+.glass-panel:hover {
+  background: var(--bg-surface-hover);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-color: var(--border-hover);
+}
+
+/* A variant that reacts more subtly (for nested cards) */
+.glass-card {
+  background: rgba(12, 17, 32, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.glass-card:hover {
+  background: rgba(16, 22, 42, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-color: var(--border-active);
+}
+
+/* ── Tactile Buttons ── */
+.btn-tactile {
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background 0.25s ease,
+              border-color 0.25s ease;
+  cursor: pointer;
+}
+
+.btn-tactile:active {
+  transform: scale(0.96);
+}
+
+/* Inner glow sweep on hover */
+.btn-tactile::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(16, 185, 129, 0.08) 50%,
+    transparent 60%
+  );
+  transform: translateX(-100%);
+  transition: transform 0.5s ease;
+  pointer-events: none;
+}
+
+.btn-tactile:hover::after {
+  transform: translateX(100%);
+}
+
+/* Primary action variant */
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-indigo), var(--accent-emerald));
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: white;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-primary:disabled::after {
+  display: none;
+}
+
+/* Ghost variant */
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+/* ── Kinetic Typography ── */
+.kinetic-title {
+  font-weight: 400;
+  transition: font-weight 0.35s ease,
+              color 0.3s ease,
+              letter-spacing 0.3s ease;
+}
+
+.group:hover .kinetic-title {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* ── Inputs ── */
+.input-field {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  transition: border-color 0.3s ease,
+              box-shadow 0.3s ease;
+  outline: none;
+}
+
+.input-field:focus {
+  border-color: var(--accent-emerald);
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.15),
+              inset 0 0 12px rgba(16, 185, 129, 0.04);
+}
+
+.input-field::placeholder {
+  color: var(--text-ghost);
+}
+
+/* ── Category Pill Toggles ── */
+.pill-toggle {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-muted);
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  cursor: pointer;
+}
+
+.pill-toggle:hover {
+  border-color: var(--border-hover);
+  color: var(--text-secondary);
+}
+
+.pill-toggle.active {
+  border-color: var(--border-active);
+  color: var(--accent-emerald);
+  background: rgba(16, 185, 129, 0.06);
+}
+
+/* Inner glow for active pill */
+.pill-toggle.active::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 100%, rgba(16, 185, 129, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* ── Card Entrance Animations ── */
+@keyframes cardSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes subtlePulse {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 1; }
+}
+
+.card-enter {
+  animation: cardSlideIn 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease both;
+}
+
+/* ── Pulsing Dots Loader (Calm Ambient) ── */
+.loader-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-emerald);
+  animation: subtlePulse 1.4s ease-in-out infinite;
+}
+
+.loader-dot:nth-child(2) { animation-delay: 0.2s; }
+.loader-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── Blinking Cursor Effect ── */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+
+.cursor-blink::after {
+  content: "▊";
+  animation: blink 1s step-end infinite;
+  color: var(--accent-emerald);
+  margin-left: 2px;
+  font-size: 0.8em;
+}
+
+/* ── Apply Now underline sweep ── */
+.link-sweep {
+  position: relative;
+  text-decoration: none;
+  transition: color 0.25s ease;
+}
+
+.link-sweep::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: var(--accent-emerald);
+  transition: width 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.link-sweep:hover::after {
+  width: 100%;
+}
+
+/* ── Action Status Badges ── */
+.badge-saved {
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: var(--accent-indigo);
+}
+
+.badge-applied {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: var(--accent-emerald);
+}
+
+.badge-rejected {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.badge-default {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+}
+
+.badge-default:hover {
+  border-color: var(--border-hover);
+  color: var(--text-secondary);
+}
+
+/* ── Custom Scrollbar ── */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, 0.2);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.35);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.2) transparent;
+}
+
+/* ── Dropdown ── */
+.dropdown-menu {
+  background: rgba(10, 14, 26, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+}
+
+.dropdown-item {
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dropdown-item:hover {
+  background: rgba(99, 102, 241, 0.08);
+  color: var(--text-primary);
+}
+
+/* ── Selection ── */
+::selection {
+  background: rgba(99, 102, 241, 0.3);
+  color: white;
+}
+
+/* ── Focus visible for accessibility ── */
+:focus-visible {
+  outline: 1px solid var(--accent-emerald);
+  outline-offset: 2px;
 }
