@@ -7,7 +7,9 @@ from app.models.schemas import OpportunityList
 cache_store = {}
 model = None
 index = None
-CACHE_ENABLED = os.getenv("ENABLE_SEMANTIC_CACHE", "true").lower() not in ["false", "0", "no"]
+# In memory-constrained cloud environments (e.g. Render 512MB free tier),
+# semantic cache defaults to false to prevent OOM SIGKILL unless explicitly enabled.
+CACHE_ENABLED = os.getenv("ENABLE_SEMANTIC_CACHE", "false").lower() in ["true", "1", "yes"]
 
 def _init_model_lazy():
     """Lazily loads SentenceTransformers and FAISS with strict thread & memory caps."""
