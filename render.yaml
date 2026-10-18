@@ -1,12 +1,15 @@
 services:
   - type: web
     name: opportunity-radar-backend
-    env: python
+    runtime: python
     region: singapore
     plan: free
-    buildCommand: "cd backend && pip install torch --index-url https://download.pytorch.org/whl/cpu && pip install -r requirements.txt"
-    startCommand: "cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    rootDir: backend
+    buildCommand: "pip install torch --index-url https://download.pytorch.org/whl/cpu && pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
       - key: GEMINI_API_KEY
         sync: false
       - key: TAVILY_API_KEY
@@ -17,4 +20,3 @@ services:
         sync: false
       - key: ALLOWED_ORIGINS
         sync: false
-
