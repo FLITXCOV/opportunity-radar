@@ -9,12 +9,14 @@ Base.metadata.create_all(bind=engine)
 
 import os
 
-# Setup CORS to allow Next.js frontend (local or production)
-allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+# Setup CORS to allow Next.js frontend (local, Vercel, or custom production domains)
+allowed_origins_raw = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000")
+allowed_origins = [o.strip() for o in allowed_origins_raw.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
