@@ -69,12 +69,14 @@ async def inspect_github_profile(username: str) -> Dict[str, Any]:
     and dependency manifests (package.json, requirements.txt, etc.)
     with a robust fallback to avoid unauthenticated 403 cloud rate limits.
     """
+    token = os.getenv("GITHUB_TOKEN", None)
     headers = {
         "Accept": "application/vnd.github.v3+json",
         "User-Agent": "OpportunityRadar-Engine/2.0"
     }
-    if GITHUB_TOKEN:
-        headers["Authorization"] = f"token {GITHUB_TOKEN}"
+    if token:
+        clean_token = token.strip().strip('"').strip("'")
+        headers["Authorization"] = f"Bearer {clean_token}"
 
     async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
         # 1. Fetch user metadata
