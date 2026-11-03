@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* ─── UNSLOPPED DESIGN SYSTEM: HIGH-PRECISION MINIMAL ─── */
+/* ─── UNSLOPPED DESIGN SYSTEM: HIGH-PRECISION LINEAR / RAYCAST ─── */
 
 :root {
   /* Surfaces */
@@ -21,19 +21,14 @@
   --text-tertiary: #71717a;
   --text-disabled: #52525b;
 
-  /* Brand / Signature Accent — Precision Amber & Clean Emerald */
-  --accent-primary: #f59e0b;
-  --accent-primary-hover: #d97706;
-  --accent-surface: rgba(245, 158, 11, 0.08);
-  --accent-border: rgba(245, 158, 11, 0.22);
+  /* Brand / Signature Accent — Emerald & Amber */
+  --accent-emerald: #10b981;
+  --accent-emerald-surface: rgba(16, 185, 129, 0.08);
+  --accent-emerald-border: rgba(16, 185, 129, 0.2);
 
-  --status-success: #10b981;
-  --status-success-surface: rgba(16, 185, 129, 0.08);
-  --status-success-border: rgba(16, 185, 129, 0.2);
-
-  --status-danger: #ef4444;
-  --status-danger-surface: rgba(239, 68, 68, 0.08);
-  --status-danger-border: rgba(239, 68, 68, 0.2);
+  --accent-amber: #f59e0b;
+  --accent-amber-surface: rgba(245, 158, 11, 0.08);
+  --accent-amber-border: rgba(245, 158, 11, 0.2);
 
   --background: var(--bg-canvas);
   --foreground: var(--text-primary);
@@ -48,45 +43,42 @@
 
 /* ── Base Reset & Typography ── */
 html {
-  background-color: var(--bg-canvas);
+  background-color: #09090b;
   color-scheme: dark;
 }
 
 body {
-  background: var(--bg-canvas);
+  background-color: #09090b;
+  background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.08), transparent);
+  background-attachment: fixed;
   color: var(--text-primary);
   font-family: var(--font-inter, 'Inter', system-ui, -apple-system, sans-serif);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
   letter-spacing: -0.011em;
-}
-
-/* Micro-dot grid background (subtle texture, no blurry blobs) */
-.dot-grid {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-  background-size: 24px 24px;
+  min-height: 100vh;
 }
 
 /* ── Form Inputs ── */
 .input-base {
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-subtle);
+  background-color: rgba(20, 20, 23, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
   border-radius: 8px;
   font-size: 0.875rem;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition: all 0.15s ease;
   outline: none;
 }
 
 .input-base:hover {
-  border-color: var(--border-hover);
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 .input-base:focus {
-  border-color: var(--text-tertiary);
-  background-color: var(--bg-surface);
-  box-shadow: 0 0 0 1px var(--text-tertiary);
+  border-color: rgba(16, 185, 129, 0.6);
+  background-color: rgba(24, 24, 28, 0.95);
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.4);
 }
 
 .input-base::placeholder {
@@ -99,19 +91,16 @@ body {
   color: #09090b;
   font-weight: 500;
   border-radius: 8px;
-  transition: background-color 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
 }
 
 .btn-primary:hover:not(:disabled) {
   background-color: #ffffff;
-  transform: translateY(-1px);
-}
-
-.btn-primary:active:not(:disabled) {
-  transform: translateY(0);
 }
 
 .btn-primary:disabled {
@@ -135,41 +124,6 @@ body {
   background-color: var(--bg-surface-hover);
   border-color: var(--border-strong);
   color: var(--text-primary);
-}
-
-/* ── Segmented Control / Pill Toggles ── */
-.filter-chip {
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  border-radius: 6px;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  transition: all 0.15s ease;
-}
-
-.filter-chip:hover {
-  background-color: var(--bg-surface-elevated);
-  border-color: var(--border-hover);
-  color: var(--text-primary);
-}
-
-.filter-chip.active {
-  background-color: var(--bg-surface-elevated);
-  border-color: var(--text-secondary);
-  color: var(--text-primary);
-}
-
-/* ── Card Surfaces ── */
-.surface-card {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  transition: border-color 0.18s ease, transform 0.18s ease;
-}
-
-.surface-card:hover {
-  border-color: var(--border-strong);
 }
 
 /* ── Custom Micro Scrollbar ── */
@@ -198,6 +152,6 @@ body {
 
 /* Selection */
 ::selection {
-  background: rgba(244, 244, 246, 0.2);
+  background: rgba(16, 185, 129, 0.25);
   color: #fff;
 }

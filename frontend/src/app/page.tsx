@@ -1,6 +1,21 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Radar,
+  Loader2,
+  Bookmark,
+  Check,
+  CheckCircle2,
+  X,
+  ArrowUpRight,
+  EyeOff,
+  Search,
+  Filter,
+  Send,
+  Sparkles,
+} from "lucide-react";
 import { BRANCHES } from "../data/branches";
 import { SKILLS_BY_CATEGORY } from "../data/skills";
 
@@ -22,6 +37,8 @@ const CATEGORIES = [
 ];
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<"discover" | "saved" | "applied">("discover");
+
   const [branch, setBranch] = useState("");
   const [branchSearch, setBranchSearch] = useState("");
   const [showBranchDropdown, setShowBranchDropdown] = useState(false);
@@ -49,11 +66,10 @@ export default function Home() {
   const [queriesUsed, setQueriesUsed] = useState<string[]>([]);
   const [actionStatuses, setActionStatuses] = useState<{ [key: string]: string }>({});
   const [emailToSave, setEmailToSave] = useState("");
-  const [savedEmailSuccess, setSavedEmailSuccess] = useState(false);
   const [savedOpportunities, setSavedOpportunities] = useState<any[]>([]);
-  const [showSaved, setShowSaved] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
-  
+  const [emailSuccessMsg, setEmailSuccessMsg] = useState("");
+
   const branchRef = useRef<HTMLDivElement>(null);
   const skillRef = useRef<HTMLDivElement>(null);
 
@@ -91,7 +107,6 @@ export default function Home() {
     const savedEmail = localStorage.getItem("radar_email");
     if (savedEmail) {
       setEmailToSave(savedEmail);
-      setSavedEmailSuccess(true);
     }
   }, []);
 
@@ -129,9 +144,9 @@ export default function Home() {
     if (!branch || !year || selectedSkills.length === 0 || !goal) return;
 
     setStatus("searching");
+    setActiveTab("discover");
     setOpportunities([]);
     setQueriesUsed([]);
-    setSavedEmailSuccess(false);
 
     const verifyingTimer = setTimeout(() => setStatus("verifying"), 4000);
 
@@ -171,25 +186,6 @@ export default function Home() {
   };
 
   const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-  const fetchSavedOpportunities = async (email: string) => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const response = await fetch(`${apiUrl}/api/v1/saved-opportunities?email=${email}`);
-      if (response.ok) {
-        const opps = await response.json();
-        setSavedOpportunities(opps.filter((o: any) => o.status === "saved"));
-
-        const statuses: { [key: string]: string } = {};
-        opps.forEach((o: any) => {
-          statuses[o.name] = o.status;
-        });
-        setActionStatuses((prev) => ({ ...prev, ...statuses }));
-      }
-    } catch (e) {
-      console.error("Failed to fetch saved opportunities", e);
-    }
-  };
 
   const updateStatus = async (opp: any, newStatus: string) => {
     const isLocalOnly =
@@ -240,7 +236,6 @@ export default function Home() {
 
   const handleSaveEmail = async () => {
     if (emailToSave && isValidEmail(emailToSave)) {
-      setSavedEmailSuccess(true);
       localStorage.setItem("radar_email", emailToSave);
 
       if (savedOpportunities.length > 0) {
@@ -262,11 +257,11 @@ export default function Home() {
         } catch (e) {
           console.error("Failed to sync local saves", e);
         }
-        
         handleTriggerEmail(emailToSave);
+      } else {
+        setEmailSuccessMsg("Email registered for future digests.");
+        setTimeout(() => setEmailSuccessMsg(""), 3500);
       }
-
-      fetchSavedOpportunities(emailToSave);
     } else {
       alert("Please enter a valid email address.");
     }
@@ -283,7 +278,8 @@ export default function Home() {
         body: JSON.stringify({ email: emailAddr }),
       });
       if (res.ok) {
-        alert("Saved opportunities have been sent to your email.");
+        setEmailSuccessMsg("Saved list sent to your inbox!");
+        setTimeout(() => setEmailSuccessMsg(""), 4000);
       } else {
         const errorData = await res.json();
         alert(`Failed to send email: ${errorData.detail || "Unknown error"}`);
@@ -299,54 +295,97 @@ export default function Home() {
   const isFormValid = Boolean(branch && year && selectedSkills.length > 0 && goal);
   const isLoading = status === "searching" || status === "verifying";
 
-  // Visible opportunities filter (exclude rejected)
-  const visibleOpportunities = opportunities.filter(
-    (o) => actionStatuses[o.name] !== "rejected"
-  );
+  // Tab counts
+  const savedCount = savedOpportunities.length;
+  const appliedCount = Object.values(actionStatuses).filter((s) => s === "applied").length;
+
+  // Filtered views
+  const visibleDiscoverOpps = opportunities.filter((o) => actionStatuses[o.name] !== "rejected");
+  const appliedOpps = [
+    ...opportunities.filter((o) => actionStatuses[o.name] === "applied"),
+    ...savedOpportunities.filter((o) => actionStatuses[o.name] === "applied"),
+  ].filter((v, i, a) => a.findIndex((t) => t.name === v.name) === i);
 
   return (
-    <div className="min-h-screen bg-[var(--bg-canvas)] text-[var(--text-primary)]">
-      {/* ── Top Navigation Bar ── */}
-      <header className="border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]/90 sticky top-0 z-30 backdrop-blur-md">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+    <div className="min-h-screen bg-[#09090b] text-[#f4f4f6] relative selection:bg-emerald-500/20 selection:text-white">
+      {/* ── Fixed top-center subtle ambient emerald glow ── */}
+      <div
+        className="pointer-events-none fixed inset-0 z-0"
+        style={{
+          background:
+            "radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.08), transparent)",
+        }}
+      />
+
+      {/* ── Top Navbar ── */}
+      <header className="border-b border-white/[0.08] bg-[#09090b]/80 sticky top-0 z-40 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
+          
+          {/* Brand Logo & Pulsing Emerald Dot */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="relative flex items-center justify-center">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
+              <span className="w-4 h-4 rounded-full bg-emerald-500/20 absolute -inset-1 animate-ping" />
+            </div>
+            <div className="flex items-center gap-1.5">
               <span className="font-semibold text-sm tracking-tight text-white">Radar</span>
-              <span className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] border border-[var(--border-subtle)] px-1.5 py-0.5 rounded">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 border border-white/[0.08] px-1.5 py-0.5 rounded bg-zinc-900/60">
                 1waygo
               </span>
             </div>
-            <span className="text-[var(--border-strong)]">/</span>
-            <span className="text-xs text-[var(--text-secondary)] hidden sm:inline">
-              Student Opportunity Discovery
-            </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            {savedOpportunities.length > 0 && (
-              <button
-                onClick={() => setShowSaved(!showSaved)}
-                className={`text-xs px-2.5 py-1.5 rounded-md border transition-colors flex items-center gap-1.5 ${
-                  showSaved
-                    ? "bg-[var(--bg-surface-elevated)] border-[var(--text-secondary)] text-white"
-                    : "bg-transparent border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-white hover:border-[var(--border-hover)]"
-                }`}
-              >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-                </svg>
-                <span>Saved ({savedOpportunities.length})</span>
-              </button>
-            )}
+          {/* Segmented View Switcher with Sliding Active Pill */}
+          <nav className="flex items-center p-1 rounded-xl bg-zinc-900/80 border border-white/[0.06] text-xs">
+            {(
+              [
+                { id: "discover", label: "Discover", count: null },
+                { id: "saved", label: "Saved", count: savedCount },
+                { id: "applied", label: "Applied", count: appliedCount },
+              ] as const
+            ).map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative px-3.5 py-1.5 rounded-lg font-medium transition-colors duration-150 flex items-center gap-1.5 z-10 ${
+                    isActive ? "text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="nav-pill"
+                      className="absolute inset-0 bg-zinc-800 border border-white/[0.1] rounded-lg shadow-sm -z-10"
+                      transition={{ type: "spring", stiffness: 450, damping: 35 }}
+                    />
+                  )}
+                  <span>{tab.label}</span>
+                  {tab.count !== null && (
+                    <span
+                      className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                        isActive
+                          ? "bg-zinc-700 text-zinc-100"
+                          : "bg-zinc-800/60 text-zinc-400"
+                      }`}
+                    >
+                      {tab.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
 
+          {/* GitHub link */}
+          <div className="hidden sm:flex items-center">
             <a
               href="https://github.com/FLITXCOV/opportunity-radar"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors flex items-center gap-1 px-2 py-1"
+              className="text-xs text-zinc-400 hover:text-white transition-colors flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg hover:bg-zinc-800/50 border border-transparent hover:border-white/[0.06]"
             >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
               </svg>
               <span>GitHub</span>
@@ -355,46 +394,49 @@ export default function Home() {
         </div>
       </header>
 
-      {/* ── Main Layout ── */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      {/* ── Main Container ── */}
+      <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-8 items-start">
 
-          {/* ── LEFT: Filters / Form ── */}
-          <aside className="surface-card p-5 lg:sticky lg:top-20">
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-[var(--border-subtle)]">
-              <div>
-                <h2 className="text-sm font-semibold text-white tracking-tight">Search Filters</h2>
-                <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">Define your background & criteria</p>
+          {/* ── LEFT: Search Filters Sidebar ── */}
+          <aside className="lg:sticky lg:top-6 bg-zinc-900/60 backdrop-blur-md border border-white/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.12)] rounded-2xl p-5">
+            <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-white/[0.06]">
+              <div className="flex items-center gap-2">
+                <Filter className="w-3.5 h-3.5 text-emerald-400" />
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-white">Search Filters</h2>
               </div>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border-subtle)]">
-                v2.1
+              <span className="text-[10px] font-mono text-zinc-500 border border-white/[0.06] px-1.5 py-0.5 rounded bg-zinc-800/40">
+                Live
               </span>
             </div>
 
             <form onSubmit={handleSearch} className="space-y-4">
-              {/* Branch */}
-              <div ref={branchRef} className="relative">
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+              
+              {/* Academic Branch */}
+              <div ref={branchRef} className="relative group focus-within:ring-1 focus-within:ring-emerald-500/50 rounded-lg">
+                <label className="block text-xs font-medium text-zinc-400 mb-1.5">
                   Academic Branch
                 </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Computer Science..."
-                  className="input-base w-full px-3 py-2 text-sm"
-                  value={branch || branchSearch}
-                  onChange={(e) => {
-                    setBranchSearch(e.target.value);
-                    setBranch("");
-                    setShowBranchDropdown(true);
-                  }}
-                  onFocus={() => setShowBranchDropdown(true)}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search branch (e.g. Computer Science)..."
+                    className="input-base w-full px-3 py-2 text-xs bg-zinc-950/60 border border-white/[0.08] rounded-lg focus:border-emerald-500/60 focus:bg-zinc-900/90 transition-all"
+                    value={branch || branchSearch}
+                    onChange={(e) => {
+                      setBranchSearch(e.target.value);
+                      setBranch("");
+                      setShowBranchDropdown(true);
+                    }}
+                    onFocus={() => setShowBranchDropdown(true)}
+                  />
+                </div>
                 {showBranchDropdown && filteredBranches.length > 0 && (
-                  <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-lg bg-[var(--bg-surface-elevated)] border border-[var(--border-strong)] shadow-xl">
+                  <div className="absolute z-30 mt-1 w-full max-h-48 overflow-y-auto rounded-lg bg-zinc-900 border border-white/[0.12] shadow-2xl">
                     {filteredBranches.map((b) => (
                       <div
                         key={b}
-                        className="px-3 py-2 text-xs text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-surface-hover)] cursor-pointer"
+                        className="px-3 py-2 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800/80 cursor-pointer transition-colors"
                         onClick={() => {
                           setBranch(b);
                           setBranchSearch(b);
@@ -408,55 +450,62 @@ export default function Home() {
                 )}
               </div>
 
-              {/* Year */}
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+              {/* Year of Study */}
+              <div className="focus-within:ring-1 focus-within:ring-emerald-500/50 rounded-lg">
+                <label className="block text-xs font-medium text-zinc-400 mb-1.5">
                   Year of Study
                 </label>
                 <select
-                  className="input-base w-full px-3 py-2 text-sm"
+                  className="input-base w-full px-3 py-2 text-xs bg-zinc-950/60 border border-white/[0.08] rounded-lg focus:border-emerald-500/60 focus:bg-zinc-900/90 transition-all"
                   value={year}
                   onChange={(e) => setYear(e.target.value)}
                 >
-                  <option value="">Select year...</option>
+                  <option value="">Select year of study...</option>
                   {YEARS.map((y) => (
-                    <option key={y} value={y} className="bg-[var(--bg-surface)]">
+                    <option key={y} value={y} className="bg-zinc-900">
                       {y}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Skills */}
-              <div ref={skillRef} className="relative">
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
-                  Skills & Technologies
+              {/* Skills & Technologies with AnimatePresence */}
+              <div ref={skillRef} className="relative group focus-within:ring-1 focus-within:ring-emerald-500/50 rounded-lg">
+                <label className="block text-xs font-medium text-zinc-400 mb-1.5">
+                  Skills &amp; Technologies
                 </label>
 
+                {/* Animated Interactive Skill Chips */}
                 {selectedSkills.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {selectedSkills.map((s) => (
-                      <span
-                        key={s}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-secondary)]"
-                      >
-                        {s}
-                        <button
-                          type="button"
-                          onClick={() => removeSkill(s)}
-                          className="hover:text-red-400 text-[var(--text-tertiary)] ml-0.5 transition-colors"
+                  <div className="flex flex-wrap gap-1.5 mb-2.5">
+                    <AnimatePresence mode="popLayout">
+                      {selectedSkills.map((s) => (
+                        <motion.span
+                          key={s}
+                          initial={{ opacity: 0, scale: 0.85 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.85 }}
+                          transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs bg-zinc-800/90 border border-white/[0.08] text-zinc-200"
                         >
-                          ×
-                        </button>
-                      </span>
-                    ))}
+                          <span>{s}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeSkill(s)}
+                            className="hover:text-red-400 text-zinc-400 ml-0.5 p-0.5 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </motion.span>
+                      ))}
+                    </AnimatePresence>
                   </div>
                 )}
 
                 <input
                   type="text"
                   placeholder="Type to add skills..."
-                  className="input-base w-full px-3 py-2 text-sm"
+                  className="input-base w-full px-3 py-2 text-xs bg-zinc-950/60 border border-white/[0.08] rounded-lg focus:border-emerald-500/60 focus:bg-zinc-900/90 transition-all"
                   value={skillSearch}
                   onChange={(e) => {
                     setSkillSearch(e.target.value);
@@ -466,16 +515,16 @@ export default function Home() {
                 />
 
                 {showSkillDropdown && filteredSkills.length > 0 && (
-                  <div className="absolute z-20 mt-1 w-full max-h-52 overflow-y-auto rounded-lg bg-[var(--bg-surface-elevated)] border border-[var(--border-strong)] shadow-xl">
+                  <div className="absolute z-30 mt-1 w-full max-h-52 overflow-y-auto rounded-lg bg-zinc-900 border border-white/[0.12] shadow-2xl">
                     {filteredSkills.map(({ category, skills }) => (
-                      <div key={category} className="border-b border-[var(--border-subtle)] last:border-0">
-                        <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] bg-[var(--bg-subtle)] sticky top-0">
+                      <div key={category} className="border-b border-white/[0.06] last:border-0">
+                        <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-zinc-500 bg-zinc-950/80 sticky top-0">
                           {category}
                         </div>
                         {skills.map((s) => (
                           <div
                             key={s}
-                            className="px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-surface-hover)] cursor-pointer"
+                            className="px-3 py-1.5 text-xs text-zinc-300 hover:text-white hover:bg-zinc-800/80 cursor-pointer transition-colors"
                             onClick={() => {
                               setSelectedSkills((prev) => [...prev, s]);
                               setSkillSearch("");
@@ -492,57 +541,66 @@ export default function Home() {
               </div>
 
               {/* Career Goal */}
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+              <div className="focus-within:ring-1 focus-within:ring-emerald-500/50 rounded-lg">
+                <label className="block text-xs font-medium text-zinc-400 mb-1.5">
                   Career Track Target
                 </label>
                 <select
-                  className="input-base w-full px-3 py-2 text-sm"
+                  className="input-base w-full px-3 py-2 text-xs bg-zinc-950/60 border border-white/[0.08] rounded-lg focus:border-emerald-500/60 focus:bg-zinc-900/90 transition-all"
                   value={goal}
                   onChange={(e) => setGoal(e.target.value)}
                 >
                   <option value="">Select track...</option>
                   {GOALS.map((g) => (
-                    <option key={g} value={g} className="bg-[var(--bg-surface)]">
+                    <option key={g} value={g} className="bg-zinc-900">
                       {g}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* Opportunity Type Toggles */}
-              <div className="pt-2 border-t border-[var(--border-subtle)]">
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
+              {/* Fixed Truncated Opportunity Types (2x2 / Flex-wrap with Gliding Pill) */}
+              <div className="pt-2 border-t border-white/[0.06]">
+                <label className="block text-xs font-medium text-zinc-400 mb-2">
                   Opportunity Types
                 </label>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-2 gap-1.5">
                   {CATEGORIES.map(({ id, label }) => {
-                    const active = selectedCategories.includes(id);
+                    const isSelected = selectedCategories.includes(id);
                     return (
                       <button
                         key={id}
                         type="button"
                         onClick={() => toggleCategory(id)}
-                        className={`filter-chip py-1.5 px-2 text-center text-xs truncate ${
-                          active ? "active" : ""
+                        className={`relative px-3 py-2 text-xs font-medium rounded-lg transition-colors text-center ${
+                          id === "Certification" ? "col-span-2" : ""
+                        } ${
+                          isSelected
+                            ? "text-zinc-950 font-semibold"
+                            : "text-zinc-400 hover:text-zinc-200 bg-zinc-950/60 border border-white/[0.06]"
                         }`}
                       >
-                        {label}
+                        {isSelected && (
+                          <motion.div
+                            layoutId="opportunity-type"
+                            className="absolute inset-0 bg-white rounded-lg shadow-sm"
+                            transition={{ type: "spring", stiffness: 450, damping: 30 }}
+                          />
+                        )}
+                        <span className="relative z-10">{label}</span>
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Additional parameters if Internship / Certification is selected */}
+              {/* Conditional parameters */}
               {selectedCategories.includes("Internship") && (
-                <div className="pt-2 border-t border-[var(--border-subtle)] grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[11px] text-[var(--text-tertiary)] mb-1">
-                      Internship Mode
-                    </label>
+                <div className="pt-2 border-t border-white/[0.06] grid grid-cols-2 gap-2">
+                  <div className="focus-within:ring-1 focus-within:ring-emerald-500/50 rounded-lg">
+                    <label className="block text-[11px] text-zinc-500 mb-1">Mode</label>
                     <select
-                      className="input-base w-full px-2.5 py-1.5 text-xs"
+                      className="input-base w-full px-2.5 py-1.5 text-xs bg-zinc-950/60 border border-white/[0.08] rounded-lg"
                       value={mode}
                       onChange={(e) => setMode(e.target.value)}
                     >
@@ -552,14 +610,12 @@ export default function Home() {
                       <option>Hybrid</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-[11px] text-[var(--text-tertiary)] mb-1">
-                      City
-                    </label>
+                  <div className="focus-within:ring-1 focus-within:ring-emerald-500/50 rounded-lg">
+                    <label className="block text-[11px] text-zinc-500 mb-1">City</label>
                     <input
                       type="text"
                       placeholder="e.g. Bangalore"
-                      className="input-base w-full px-2.5 py-1.5 text-xs"
+                      className="input-base w-full px-2.5 py-1.5 text-xs bg-zinc-950/60 border border-white/[0.08] rounded-lg"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
                     />
@@ -568,12 +624,10 @@ export default function Home() {
               )}
 
               {selectedCategories.includes("Certification") && (
-                <div>
-                  <label className="block text-[11px] text-[var(--text-tertiary)] mb-1">
-                    Certification Cost
-                  </label>
+                <div className="focus-within:ring-1 focus-within:ring-emerald-500/50 rounded-lg">
+                  <label className="block text-[11px] text-zinc-500 mb-1">Certification Cost</label>
                   <select
-                    className="input-base w-full px-2.5 py-1.5 text-xs"
+                    className="input-base w-full px-2.5 py-1.5 text-xs bg-zinc-950/60 border border-white/[0.08] rounded-lg"
                     value={budget}
                     onChange={(e) => setBudget(e.target.value)}
                   >
@@ -583,68 +637,256 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Submit CTA */}
-              <button
+              {/* Primary CTA Polish: Tactile press, hover shimmer & spinning radar */}
+              <motion.button
                 type="submit"
                 disabled={isLoading || !isFormValid}
-                className="btn-primary w-full py-2.5 text-sm mt-2"
+                whileTap={{ scale: 0.98 }}
+                className="group relative w-full mt-2 py-2.5 px-4 rounded-xl text-xs font-semibold bg-white text-zinc-950 shadow-md shadow-black/20 hover:bg-zinc-100 disabled:opacity-35 disabled:cursor-not-allowed overflow-hidden flex items-center justify-center gap-2 transition-all"
               >
+                {/* Subtle shimmer effect on hover */}
+                <div className="absolute inset-0 -translate-x-full group-hover:animate-[shimmer_1.4s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent pointer-events-none" />
+
                 {isLoading ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin w-4 h-4 text-black" viewBox="0 0 24 24" fill="none">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span>{status === "searching" ? "Searching indexes..." : "Verifying links..."}</span>
-                  </span>
+                  <>
+                    <Radar className="w-4 h-4 text-emerald-600 animate-spin" />
+                    <span>{status === "searching" ? "Scanning indexes..." : "Verifying links..."}</span>
+                  </>
                 ) : (
-                  "Find Opportunities"
+                  <>
+                    <Search className="w-3.5 h-3.5 text-zinc-700" />
+                    <span>Find Opportunities</span>
+                  </>
                 )}
-              </button>
+              </motion.button>
             </form>
           </aside>
 
-          {/* ── RIGHT: Results Pane ── */}
+          {/* ── RIGHT: Main Results Pane ── */}
           <main className="space-y-6">
 
-            {/* ── Saved Opportunities View (When Opened) ── */}
-            {showSaved && (
-              <section className="surface-card p-5 border-amber-500/20 bg-amber-500/[0.02]">
-                <div className="flex items-center justify-between pb-3 mb-4 border-b border-[var(--border-subtle)]">
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-                    </svg>
-                    <h3 className="text-sm font-semibold text-white">Saved Opportunities ({savedOpportunities.length})</h3>
+            {/* TAB 1: DISCOVER */}
+            {activeTab === "discover" && (
+              <>
+                {/* Idle State */}
+                {status === "idle" && (
+                  <div className="bg-zinc-900/40 border border-white/[0.06] rounded-2xl p-10 text-center flex flex-col items-center justify-center min-h-[380px]">
+                    <div className="w-10 h-10 rounded-full border border-white/[0.08] bg-zinc-800/40 flex items-center justify-center text-zinc-400 mb-4">
+                      <Radar className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-white mb-1">Opportunity Radar</h3>
+                    <p className="text-xs text-zinc-400 max-w-sm leading-relaxed mb-4">
+                      Select your academic profile on the left and initialize search to scan active hackathons, internships, and certifications.
+                    </p>
+                    <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-500">
+                      <span>Engine: Gemini AI</span>
+                      <span>•</span>
+                      <span>Verified Live Web</span>
+                    </div>
                   </div>
-                  <button
-                    onClick={() => setShowSaved(false)}
-                    className="text-xs text-[var(--text-tertiary)] hover:text-white"
-                  >
-                    Close
-                  </button>
+                )}
+
+                {/* Loading State */}
+                {isLoading && (
+                  <div className="bg-zinc-900/40 border border-white/[0.06] rounded-2xl p-10 text-center flex flex-col items-center justify-center min-h-[380px]">
+                    <div className="relative mb-4">
+                      <Loader2 className="w-6 h-6 text-emerald-400 animate-spin" />
+                    </div>
+                    <h3 className="text-sm font-medium text-white mb-1 font-mono">
+                      {status === "searching" ? "Querying Opportunity Indexes..." : "Validating Live Application URLs..."}
+                    </h3>
+                    <p className="text-xs text-zinc-400 max-w-sm">
+                      {status === "searching"
+                        ? "Scanning verified platforms for current deadlines matching your skills."
+                        : "Checking URLs and filtering out expired postings."}
+                    </p>
+                  </div>
+                )}
+
+                {/* Empty Results */}
+                {status === "done" && visibleDiscoverOpps.length === 0 && (
+                  <div className="bg-zinc-900/40 border border-white/[0.06] rounded-2xl p-10 text-center">
+                    <p className="text-sm font-medium text-white mb-1">No active listings found</p>
+                    <p className="text-xs text-zinc-400 max-w-md mx-auto">
+                      No verified opportunities currently matched this specific filter combination. Try selecting additional skills or broadening your preferences.
+                    </p>
+                  </div>
+                )}
+
+                {/* Results Header */}
+                {status === "done" && visibleDiscoverOpps.length > 0 && (
+                  <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                      <span className="text-xs font-semibold text-white">
+                        {visibleDiscoverOpps.length} Verified Match{visibleDiscoverOpps.length === 1 ? "" : "es"}
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-mono text-zinc-400">
+                      {selectedCategories.join(" · ")}
+                    </div>
+                  </div>
+                )}
+
+                {/* Query Diagnostics */}
+                {status === "done" && queriesUsed.length > 0 && (
+                  <details className="text-xs text-zinc-400 border border-white/[0.06] rounded-xl p-3 bg-zinc-900/40 cursor-pointer">
+                    <summary className="font-mono text-[11px] text-zinc-300 select-none">
+                      Search Query Diagnostics ({queriesUsed.length} queries)
+                    </summary>
+                    <div className="mt-2 space-y-1 font-mono text-[11px] text-zinc-500">
+                      {queriesUsed.map((q, i) => (
+                        <div key={i} className="truncate">
+                          <span className="text-zinc-600 mr-2">{i + 1}.</span>
+                          {q}
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
+
+                {/* Opportunity Cards */}
+                {status === "done" && (
+                  <div className="space-y-4">
+                    {visibleDiscoverOpps.map((opp, idx) => {
+                      const isSaved = actionStatuses[opp.name] === "saved";
+                      const isApplied = actionStatuses[opp.name] === "applied";
+
+                      return (
+                        <article
+                          key={idx}
+                          className="bg-zinc-900/60 border border-white/[0.06] hover:border-white/[0.12] rounded-xl p-5 transition-all shadow-sm"
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-zinc-800/80 text-zinc-300 border border-white/[0.06]">
+                                {opp.type}
+                              </span>
+                              {opp.organization && (
+                                <span className="text-xs text-zinc-300 font-medium">
+                                  {opp.organization}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-400">
+                              <span>Deadline:</span>
+                              <span className="text-zinc-200">{opp.deadline || "Open"}</span>
+                            </div>
+                          </div>
+
+                          <h3 className="text-base font-semibold text-white tracking-tight mb-2">
+                            {opp.name}
+                          </h3>
+
+                          {opp.description && (
+                            <p className="text-xs text-zinc-300 leading-relaxed mb-3">
+                              {opp.description}
+                            </p>
+                          )}
+
+                          {opp.time_commitment && (
+                            <div className="text-[11px] text-zinc-400 flex items-center gap-1.5 mb-3">
+                              <span className="text-zinc-500">Commitment:</span>
+                              <span>{opp.time_commitment}</span>
+                            </div>
+                          )}
+
+                          {opp.reason && (
+                            <div className="p-3 rounded-lg bg-zinc-950/60 border border-white/[0.04] text-xs text-zinc-300 mb-4">
+                              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 block mb-1">
+                                Match Reason
+                              </span>
+                              <p className="leading-relaxed">{opp.reason}</p>
+                            </div>
+                          )}
+
+                          <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => handleSaveOpp(opp)}
+                                className={`text-xs px-2.5 py-1 rounded-md border transition-colors flex items-center gap-1 ${
+                                  isSaved
+                                    ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                                    : "border-white/[0.08] text-zinc-300 hover:text-white hover:border-white/[0.16]"
+                                }`}
+                              >
+                                <Bookmark className="w-3 h-3" />
+                                <span>{isSaved ? "Saved" : "Save"}</span>
+                              </button>
+
+                              <button
+                                onClick={() =>
+                                  updateStatus(opp, isApplied ? "" : "applied")
+                                }
+                                className={`text-xs px-2.5 py-1 rounded-md border transition-colors flex items-center gap-1 ${
+                                  isApplied
+                                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                                    : "border-white/[0.08] text-zinc-300 hover:text-white hover:border-white/[0.16]"
+                                }`}
+                              >
+                                <Check className="w-3 h-3" />
+                                <span>{isApplied ? "Applied" : "Mark Applied"}</span>
+                              </button>
+
+                              <button
+                                onClick={() => updateStatus(opp, "rejected")}
+                                className="text-xs px-2 py-1 text-zinc-500 hover:text-red-400 transition-colors flex items-center gap-1"
+                                title="Hide from list"
+                              >
+                                <EyeOff className="w-3 h-3" />
+                                <span>Hide</span>
+                              </button>
+                            </div>
+
+                            <a
+                              href={opp.link}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn-secondary text-xs px-3 py-1.5 font-medium flex items-center gap-1 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg border border-white/[0.08]"
+                            >
+                              <span>Apply</span>
+                              <ArrowUpRight className="w-3 h-3 text-zinc-400" />
+                            </a>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* TAB 2: SAVED */}
+            {activeTab === "saved" && (
+              <section className="bg-zinc-900/60 border border-white/[0.08] rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/[0.06]">
+                  <div className="flex items-center gap-2">
+                    <Bookmark className="w-4 h-4 text-amber-400" />
+                    <h3 className="text-sm font-semibold text-white">Saved Opportunities ({savedCount})</h3>
+                  </div>
                 </div>
 
                 {savedOpportunities.length === 0 ? (
-                  <p className="text-xs text-[var(--text-tertiary)] py-4 text-center">
-                    No saved opportunities yet. Click &quot;Save&quot; on any card below.
+                  <p className="text-xs text-zinc-400 py-8 text-center">
+                    No saved opportunities yet. Switch to Discover and click &quot;Save&quot; on any card.
                   </p>
                 ) : (
                   <div className="space-y-3">
                     {savedOpportunities.map((opp, idx) => (
                       <div
                         key={`saved-${idx}`}
-                        className="bg-[var(--bg-subtle)] border border-[var(--border-subtle)] rounded-lg p-3.5 flex items-center justify-between gap-4"
+                        className="bg-zinc-950/60 border border-white/[0.06] rounded-xl p-3.5 flex items-center justify-between gap-4"
                       >
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 text-xs">
-                            <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border-subtle)]">
+                            <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-white/[0.06]">
                               {opp.type}
                             </span>
                             <span className="font-medium text-white truncate">{opp.name}</span>
                           </div>
-                          <p className="text-[11px] text-[var(--text-tertiary)] mt-1 truncate">
-                            {opp.organization ? `${opp.organization} · ` : ""}Deadline: {opp.deadline}
+                          <p className="text-[11px] text-zinc-400 mt-1 truncate">
+                            {opp.organization ? `${opp.organization} · ` : ""}Deadline: {opp.deadline || "Open"}
                           </p>
                         </div>
 
@@ -659,266 +901,118 @@ export default function Home() {
                             href={opp.link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="btn-secondary text-xs px-2.5 py-1"
+                            className="btn-secondary text-xs px-2.5 py-1 bg-zinc-800 text-white rounded-md border border-white/[0.08] flex items-center gap-1"
                           >
-                            Apply ↗
+                            <span>Apply</span>
+                            <ArrowUpRight className="w-3 h-3" />
                           </a>
                         </div>
                       </div>
                     ))}
 
                     {/* Email Digest Trigger */}
-                    <div className="pt-3 mt-4 border-t border-[var(--border-subtle)] flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div className="pt-4 mt-5 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-3">
                       <div className="text-left w-full sm:w-auto">
-                        <p className="text-xs font-medium text-white">Send to Email</p>
-                        <p className="text-[11px] text-[var(--text-tertiary)]">
-                          Export these saved opportunities to your inbox.
+                        <p className="text-xs font-medium text-white">Export to Email</p>
+                        <p className="text-[11px] text-zinc-400">
+                          Send this curated list to your personal email inbox.
                         </p>
                       </div>
                       <div className="flex items-center gap-2 w-full sm:w-auto">
                         <input
                           type="email"
                           placeholder="Your email address"
-                          className="input-base px-2.5 py-1 text-xs w-full sm:w-56"
+                          className="input-base px-2.5 py-1.5 text-xs w-full sm:w-56 bg-zinc-950 border border-white/[0.08] rounded-lg"
                           value={emailToSave}
                           onChange={(e) => setEmailToSave(e.target.value)}
                         />
                         <button
                           onClick={handleSaveEmail}
                           disabled={!emailToSave || isSendingEmail}
-                          className="btn-secondary text-xs px-3 py-1.5 shrink-0"
+                          className="btn-secondary text-xs px-3 py-1.5 shrink-0 bg-white text-zinc-950 font-semibold hover:bg-zinc-200 rounded-lg flex items-center gap-1"
                         >
-                          {isSendingEmail ? "Sending..." : "Send"}
+                          <Send className="w-3 h-3" />
+                          <span>{isSendingEmail ? "Sending..." : "Send"}</span>
                         </button>
                       </div>
                     </div>
+                    {emailSuccessMsg && (
+                      <p className="text-xs text-emerald-400 font-mono mt-2">{emailSuccessMsg}</p>
+                    )}
                   </div>
                 )}
               </section>
             )}
 
-            {/* ── Idle State (Before Search) ── */}
-            {status === "idle" && (
-              <div className="surface-card p-10 text-center flex flex-col items-center justify-center min-h-[380px]">
-                <div className="w-10 h-10 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] flex items-center justify-center text-[var(--text-secondary)] mb-4">
-                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="2" x2="12" y2="6" />
-                    <line x1="12" y1="18" x2="12" y2="22" />
-                    <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
-                    <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
-                    <line x1="2" y1="12" x2="6" y2="12" />
-                    <line x1="18" y1="12" x2="22" y2="12" />
-                    <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
-                    <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
-                  </svg>
+            {/* TAB 3: APPLIED */}
+            {activeTab === "applied" && (
+              <section className="bg-zinc-900/60 border border-white/[0.08] rounded-2xl p-5 shadow-sm">
+                <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/[0.06]">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <h3 className="text-sm font-semibold text-white">Applied Opportunities ({appliedCount})</h3>
+                  </div>
                 </div>
-                <h3 className="text-sm font-semibold text-white mb-1">Radar Ready</h3>
-                <p className="text-xs text-[var(--text-tertiary)] max-w-sm leading-relaxed mb-4">
-                  Select your academic branch, year, and target career track on the left to scan live, verified hackathons, internships, and certifications.
-                </p>
-                <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--text-disabled)]">
-                  <span>Backend: Render</span>
-                  <span>•</span>
-                  <span>Engine: Gemini AI + Live Web</span>
-                </div>
-              </div>
-            )}
 
-            {/* ── Loading State ── */}
-            {isLoading && (
-              <div className="surface-card p-10 text-center flex flex-col items-center justify-center min-h-[380px]">
-                <div className="relative mb-5">
-                  <svg className="animate-spin w-6 h-6 text-[var(--text-secondary)]" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-                    <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                </div>
-                <h3 className="text-sm font-medium text-white mb-1 font-mono">
-                  {status === "searching" ? "Querying Opportunity Indexes..." : "Validating Application Links..."}
-                </h3>
-                <p className="text-xs text-[var(--text-tertiary)] max-w-sm">
-                  {status === "searching"
-                    ? "Searching verified platforms for current deadlines matching your skills."
-                    : "Pinging URLs and eliminating expired postings."}
-                </p>
-              </div>
-            )}
-
-            {/* ── Empty Results State ── */}
-            {status === "done" && visibleOpportunities.length === 0 && (
-              <div className="surface-card p-10 text-center">
-                <p className="text-sm font-medium text-white mb-1">No active listings found</p>
-                <p className="text-xs text-[var(--text-tertiary)] max-w-md mx-auto mb-4">
-                  No verified opportunities currently matched this specific filter combination. Try selecting additional skills or broadening your preferences.
-                </p>
-              </div>
-            )}
-
-            {/* ── Results Header ── */}
-            {status === "done" && visibleOpportunities.length > 0 && (
-              <div className="flex items-center justify-between pb-2 border-b border-[var(--border-subtle)]">
-                <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                  <span className="text-xs font-semibold text-white">
-                    {visibleOpportunities.length} Verified Match{visibleOpportunities.length === 1 ? "" : "es"}
-                  </span>
-                </div>
-                <div className="text-[11px] font-mono text-[var(--text-tertiary)]">
-                  {selectedCategories.join(" · ")}
-                </div>
-              </div>
-            )}
-
-            {/* ── Search Execution Log (Technical Drawer) ── */}
-            {status === "done" && queriesUsed.length > 0 && (
-              <details className="text-xs text-[var(--text-tertiary)] border border-[var(--border-subtle)] rounded-lg p-3 bg-[var(--bg-subtle)] cursor-pointer">
-                <summary className="font-mono text-[11px] text-[var(--text-secondary)] select-none">
-                  Search Query Diagnostics ({queriesUsed.length} queries)
-                </summary>
-                <div className="mt-2 space-y-1 font-mono text-[11px] text-[var(--text-tertiary)]">
-                  {queriesUsed.map((q, i) => (
-                    <div key={i} className="truncate">
-                      <span className="text-[var(--text-disabled)] mr-2">{i + 1}.</span>
-                      {q}
-                    </div>
-                  ))}
-                </div>
-              </details>
-            )}
-
-            {/* ── Opportunity Cards List ── */}
-            {status === "done" && (
-              <div className="space-y-4">
-                {visibleOpportunities.map((opp, idx) => {
-                  const isSaved = actionStatuses[opp.name] === "saved";
-                  const isApplied = actionStatuses[opp.name] === "applied";
-
-                  return (
-                    <article
-                      key={idx}
-                      className="surface-card p-5 relative transition-all"
-                    >
-                      {/* Top Meta row */}
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border-subtle)]">
-                            {opp.type}
-                          </span>
-                          {opp.organization && (
-                            <span className="text-xs text-[var(--text-secondary)] font-medium">
-                              {opp.organization}
+                {appliedOpps.length === 0 ? (
+                  <p className="text-xs text-zinc-400 py-8 text-center">
+                    No applied opportunities tracked yet. Mark opportunities as &quot;Applied&quot; to keep track of them here.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {appliedOpps.map((opp, idx) => (
+                      <div
+                        key={`applied-${idx}`}
+                        className="bg-zinc-950/60 border border-white/[0.06] rounded-xl p-3.5 flex items-center justify-between gap-4"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-white/[0.06]">
+                              {opp.type}
                             </span>
-                          )}
+                            <span className="font-medium text-white truncate">{opp.name}</span>
+                          </div>
+                          <p className="text-[11px] text-zinc-400 mt-1 truncate">
+                            {opp.organization ? `${opp.organization} · ` : ""}Deadline: {opp.deadline || "Open"}
+                          </p>
                         </div>
 
-                        <div className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--text-tertiary)]">
-                          <span>Deadline:</span>
-                          <span className="text-[var(--text-secondary)]">{opp.deadline || "Open"}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => updateStatus(opp, "")}
+                            className="text-xs text-zinc-400 hover:text-white px-2 py-1"
+                          >
+                            Unmark
+                          </button>
+                          <a
+                            href={opp.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-secondary text-xs px-2.5 py-1 bg-zinc-800 text-white rounded-md border border-white/[0.08] flex items-center gap-1"
+                          >
+                            <span>Open</span>
+                            <ArrowUpRight className="w-3 h-3" />
+                          </a>
                         </div>
                       </div>
-
-                      {/* Title */}
-                      <h3 className="text-base font-semibold text-white tracking-tight mb-2">
-                        {opp.name}
-                      </h3>
-
-                      {/* Description */}
-                      {opp.description && (
-                        <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-3">
-                          {opp.description}
-                        </p>
-                      )}
-
-                      {/* Time commitment */}
-                      {opp.time_commitment && (
-                        <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1.5 mb-3">
-                          <span className="text-[var(--text-disabled)]">Commitment:</span>
-                          <span>{opp.time_commitment}</span>
-                        </div>
-                      )}
-
-                      {/* Why it matches (Clean, honest explanation) */}
-                      {opp.reason && (
-                        <div className="p-3 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-xs text-[var(--text-secondary)] mb-4">
-                          <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] block mb-1">
-                            Match Reason
-                          </span>
-                          <p className="leading-relaxed">{opp.reason}</p>
-                        </div>
-                      )}
-
-                      {/* Actions Footer */}
-                      <div className="pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-1.5">
-                          {/* Save toggle */}
-                          <button
-                            onClick={() => handleSaveOpp(opp)}
-                            className={`text-xs px-2.5 py-1 rounded border transition-colors ${
-                              isSaved
-                                ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
-                                : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-white hover:border-[var(--border-hover)]"
-                            }`}
-                          >
-                            {isSaved ? "Saved ✓" : "Save"}
-                          </button>
-
-                          {/* Applied toggle */}
-                          <button
-                            onClick={() =>
-                              updateStatus(opp, isApplied ? "" : "applied")
-                            }
-                            className={`text-xs px-2.5 py-1 rounded border transition-colors ${
-                              isApplied
-                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
-                                : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-white hover:border-[var(--border-hover)]"
-                            }`}
-                          >
-                            {isApplied ? "Applied ✓" : "Mark Applied"}
-                          </button>
-
-                          {/* Hide button */}
-                          <button
-                            onClick={() => updateStatus(opp, "rejected")}
-                            className="text-xs px-2 py-1 text-[var(--text-disabled)] hover:text-red-400 transition-colors"
-                            title="Hide from list"
-                          >
-                            Hide
-                          </button>
-                        </div>
-
-                        {/* Direct application link */}
-                        <a
-                          href={opp.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn-secondary text-xs px-3 py-1.5 font-medium flex items-center gap-1.5"
-                        >
-                          <span>Apply</span>
-                          <svg className="w-3 h-3 text-[var(--text-tertiary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                            <polyline points="15 3 21 3 21 9" />
-                            <line x1="10" y1="14" x2="21" y2="3" />
-                          </svg>
-                        </a>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
+                    ))}
+                  </div>
+                )}
+              </section>
             )}
+
           </main>
         </div>
 
         {/* ── Footer ── */}
-        <footer className="mt-16 pt-6 border-t border-[var(--border-subtle)] text-center text-xs text-[var(--text-tertiary)] flex flex-col sm:flex-row items-center justify-between gap-3">
+        <footer className="mt-16 pt-6 border-t border-white/[0.06] text-center text-xs text-zinc-500 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="font-mono text-white font-medium">1waygo</span>
+            <span className="font-mono text-white font-medium">1waygo Radar</span>
             <span>·</span>
             <span>Built by Anderson</span>
           </div>
-          <p className="font-mono text-[11px] text-[var(--text-disabled)]">
-            Verified realtime data powered by Gemini &amp; Tavily Search
+          <p className="font-mono text-[11px] text-zinc-600">
+            Realtime verified index powered by Gemini AI &amp; Tavily Search
           </p>
         </footer>
       </div>
