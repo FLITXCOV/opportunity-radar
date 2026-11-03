@@ -19,3 +19,5 @@ greenlet
 python-dateutil
 fakeredis
 resend
+pypdf
+python-multipart

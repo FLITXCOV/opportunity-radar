@@ -23,27 +23,33 @@ def get_or_create_user(db: Session, profile: dict) -> models.User:
     return user
 
 def upsert_opportunity(db: Session, opp_data: dict) -> models.Opportunity:
-    # Basic SQLite upsert pattern
+    opp_type = opp_data.get("type", "other")
+    if hasattr(opp_type, "value"):
+        opp_type = opp_type.value
+    opp_type = str(opp_type).lower()
+    if opp_type not in [e.value for e in models.OpportunityType]:
+        opp_type = "other"
+
+    url = opp_data.get("url") or opp_data.get("link", "")
     stmt = insert(models.Opportunity).values(
         id=str(uuid.uuid4()),
         name=opp_data["name"],
-        type=opp_data["type"].lower() if opp_data["type"].lower() in [e.value for e in models.OpportunityType] else "other",
-        url=opp_data["link"],
-        deadline=opp_data.get("deadline", ""),
+        type=opp_type,
+        url=url,
+        deadline=opp_data.get("deadline", "Rolling"),
         deadline_status="confirmed",
         verified_live=True
     )
-    
-    # On conflict (URL exists), just return the existing record without doing anything
     stmt = stmt.on_conflict_do_nothing(index_elements=['url'])
     db.execute(stmt)
     db.commit()
     
-    # Retrieve it (whether just inserted or pre-existing)
-    return db.query(models.Opportunity).filter(models.Opportunity.url == opp_data["link"]).first()
+    return db.query(models.Opportunity).filter(models.Opportunity.url == url).first()
+
+def get_recent_opportunities(db: Session, limit: int = 30):
+    return db.query(models.Opportunity).order_by(models.Opportunity.created_at.desc()).limit(limit).all()
 
 def link_user_opportunity(db: Session, user_id: str, opp_id: str, why_relevant: str):
-    # Check if link exists
     link = db.query(models.UserOpportunity).filter(
         models.UserOpportunity.user_id == user_id,
         models.UserOpportunity.opportunity_id == opp_id
@@ -116,7 +122,7 @@ def get_user_opportunities(db: Session, email: str):
                 "type": opp.type.value if hasattr(opp.type, 'value') else opp.type,
                 "deadline": opp.deadline,
                 "link": opp.url,
-                "description": "", # Minimal info needed for saved card
+                "description": "",
                 "time_commitment": "",
                 "reason": link.why_relevant,
                 "status": link.status
