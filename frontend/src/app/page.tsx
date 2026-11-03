@@ -14,10 +14,11 @@ const GOALS = [
   "Research / Higher Studies",
   "Entrepreneur / Startup",
 ];
+
 const CATEGORIES = [
-  { id: "Hackathon", label: "Hackathon", icon: "🏆" },
-  { id: "Internship", label: "Internship", icon: "💼" },
-  { id: "Certification", label: "Certification", icon: "📜" },
+  { id: "Hackathon", label: "Hackathons" },
+  { id: "Internship", label: "Internships" },
+  { id: "Certification", label: "Certifications" },
 ];
 
 export default function Home() {
@@ -52,6 +53,7 @@ export default function Home() {
   const [savedOpportunities, setSavedOpportunities] = useState<any[]>([]);
   const [showSaved, setShowSaved] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
+  
   const branchRef = useRef<HTMLDivElement>(null);
   const skillRef = useRef<HTMLDivElement>(null);
 
@@ -122,8 +124,8 @@ export default function Home() {
     setSelectedSkills((prev) => prev.filter((s) => s !== skill));
   };
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!branch || !year || selectedSkills.length === 0 || !goal) return;
 
     setStatus("searching");
@@ -152,7 +154,7 @@ export default function Home() {
 
       if (response.status === 429) {
         const errData = await response.json();
-        alert(errData.detail?.error || "Rate limited! Please wait a moment.");
+        alert(errData.detail?.error || "Rate limited. Please wait a few moments before searching again.");
         setStatus("idle");
         return;
       }
@@ -161,7 +163,7 @@ export default function Home() {
       setOpportunities(data.opportunities || []);
       setQueriesUsed(data.queries_used || []);
     } catch (error) {
-      console.error("Failed to fetch", error);
+      console.error("Failed to fetch opportunities:", error);
     } finally {
       clearTimeout(verifyingTimer);
       setStatus((prev) => (prev !== "idle" ? "done" : "idle"));
@@ -281,7 +283,7 @@ export default function Home() {
         body: JSON.stringify({ email: emailAddr }),
       });
       if (res.ok) {
-        alert("Success! Your saved opportunities have been sent to your email.");
+        alert("Saved opportunities have been sent to your email.");
       } else {
         const errorData = await res.json();
         alert(`Failed to send email: ${errorData.detail || "Unknown error"}`);
@@ -294,54 +296,91 @@ export default function Home() {
     }
   };
 
-  const categoryIcons: { [key: string]: string } = {
-    Hackathon: "🏆",
-    Internship: "💼",
-    Certification: "📜",
-  };
-
-  const isFormValid = branch && year && selectedSkills.length > 0 && goal;
+  const isFormValid = Boolean(branch && year && selectedSkills.length > 0 && goal);
   const isLoading = status === "searching" || status === "verifying";
 
+  // Visible opportunities filter (exclude rejected)
+  const visibleOpportunities = opportunities.filter(
+    (o) => actionStatuses[o.name] !== "rejected"
+  );
+
   return (
-    <div className="relative min-h-screen text-[var(--text-primary)] selection:bg-[var(--accent-indigo)]/30 selection:text-white" style={{ background: 'var(--bg-primary)' }}>
-      {/* Ambient glow handled by body::after in CSS */}
+    <div className="min-h-screen bg-[var(--bg-canvas)] text-[var(--text-primary)]">
+      {/* ── Top Navigation Bar ── */}
+      <header className="border-b border-[var(--border-subtle)] bg-[var(--bg-canvas)]/90 sticky top-0 z-30 backdrop-blur-md">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+              <span className="font-semibold text-sm tracking-tight text-white">Radar</span>
+              <span className="text-[11px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] border border-[var(--border-subtle)] px-1.5 py-0.5 rounded">
+                1waygo
+              </span>
+            </div>
+            <span className="text-[var(--border-strong)]">/</span>
+            <span className="text-xs text-[var(--text-secondary)] hidden sm:inline">
+              Student Opportunity Discovery
+            </span>
+          </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 md:px-12 py-12 md:py-24">
+          <div className="flex items-center gap-3">
+            {savedOpportunities.length > 0 && (
+              <button
+                onClick={() => setShowSaved(!showSaved)}
+                className={`text-xs px-2.5 py-1.5 rounded-md border transition-colors flex items-center gap-1.5 ${
+                  showSaved
+                    ? "bg-[var(--bg-surface-elevated)] border-[var(--text-secondary)] text-white"
+                    : "bg-transparent border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-white hover:border-[var(--border-hover)]"
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                </svg>
+                <span>Saved ({savedOpportunities.length})</span>
+              </button>
+            )}
 
-        {/* ── HEADER ── */}
-        <header className="mb-16 md:mb-24 flex flex-col items-center md:items-start text-center md:text-left fade-in">
-          <h1 className="text-5xl md:text-7xl lg:text-8xl tracking-tighter leading-none mb-4 font-bold">
-            <span className="text-[var(--text-ghost)] font-light mr-1">1</span>
-            <span className="bg-gradient-to-br from-white via-white to-[var(--accent-emerald)] bg-clip-text text-transparent">waygo</span>
-          </h1>
-          <p className="text-[var(--text-secondary)] text-sm md:text-base max-w-xl tracking-wide font-light animate-[fadeIn_1s_ease-out_0.3s_both]">
-            Your career, accelerated. AI-curated opportunities perfectly matched to your distinct profile.
-          </p>
-        </header>
+            <a
+              href="https://github.com/FLITXCOV/opportunity-radar"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] transition-colors flex items-center gap-1 px-2 py-1"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+              </svg>
+              <span>GitHub</span>
+            </a>
+          </div>
+        </div>
+      </header>
 
-        {/* ── MAIN GRID ── */}
-        <div className="grid grid-cols-1 md:grid-cols-[380px_1fr] gap-10 md:gap-16">
+      {/* ── Main Layout ── */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-8 items-start">
 
-          {/* ─── LEFT: PROFILE FORM ─── */}
-          <aside className="glass-panel rounded-3xl p-7 md:p-9 h-fit sticky top-12 fade-in">
-            <div className="flex items-center gap-3 mb-8">
-              <div className="w-1.5 h-6 bg-[var(--accent-emerald)] rounded-full"></div>
-              <h2 className="text-xl font-medium tracking-tight text-[var(--text-primary)]">
-                Your Profile
-              </h2>
+          {/* ── LEFT: Filters / Form ── */}
+          <aside className="surface-card p-5 lg:sticky lg:top-20">
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-[var(--border-subtle)]">
+              <div>
+                <h2 className="text-sm font-semibold text-white tracking-tight">Search Filters</h2>
+                <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">Define your background & criteria</p>
+              </div>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border-subtle)]">
+                v2.1
+              </span>
             </div>
 
-            <div className="space-y-7">
-              {/* BRANCH */}
-              <div ref={branchRef} className="relative group">
-                <label className="block text-xs font-semibold text-[var(--text-muted)] mb-2 uppercase tracking-[0.1em] group-focus-within:text-[var(--accent-emerald)] transition-colors">
-                  Branch
+            <form onSubmit={handleSearch} className="space-y-4">
+              {/* Branch */}
+              <div ref={branchRef} className="relative">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+                  Academic Branch
                 </label>
                 <input
                   type="text"
-                  placeholder="Search your branch..."
-                  className="input-field w-full rounded-xl px-4 py-3 min-h-[44px] text-sm"
+                  placeholder="e.g. Computer Science..."
+                  className="input-base w-full px-3 py-2 text-sm"
                   value={branch || branchSearch}
                   onChange={(e) => {
                     setBranchSearch(e.target.value);
@@ -351,11 +390,11 @@ export default function Home() {
                   onFocus={() => setShowBranchDropdown(true)}
                 />
                 {showBranchDropdown && filteredBranches.length > 0 && (
-                  <div className="dropdown-menu absolute z-20 mt-2 w-full max-h-56 overflow-y-auto rounded-xl shadow-2xl shadow-[var(--bg-primary)]">
+                  <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-lg bg-[var(--bg-surface-elevated)] border border-[var(--border-strong)] shadow-xl">
                     {filteredBranches.map((b) => (
                       <div
                         key={b}
-                        className="dropdown-item px-4 py-2.5 text-sm text-[var(--text-secondary)] cursor-pointer min-h-[44px] flex items-center"
+                        className="px-3 py-2 text-xs text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-surface-hover)] cursor-pointer"
                         onClick={() => {
                           setBranch(b);
                           setBranchSearch(b);
@@ -369,44 +408,45 @@ export default function Home() {
                 )}
               </div>
 
-              {/* YEAR */}
-              <div className="group">
-                <label className="block text-xs font-semibold text-[var(--text-muted)] mb-2 uppercase tracking-[0.1em] group-focus-within:text-[var(--accent-emerald)] transition-colors">
-                  Year
+              {/* Year */}
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+                  Year of Study
                 </label>
                 <select
-                  className="input-field w-full rounded-xl px-4 py-3 min-h-[44px] text-sm appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23475569%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[length:0.65rem_auto]"
+                  className="input-base w-full px-3 py-2 text-sm"
                   value={year}
                   onChange={(e) => setYear(e.target.value)}
                 >
-                  <option value="">Select Year</option>
+                  <option value="">Select year...</option>
                   {YEARS.map((y) => (
-                    <option key={y} value={y}>
+                    <option key={y} value={y} className="bg-[var(--bg-surface)]">
                       {y}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* SKILLS */}
-              <div ref={skillRef} className="relative group">
-                <label className="block text-xs font-semibold text-[var(--text-muted)] mb-2 uppercase tracking-[0.1em] group-focus-within:text-[var(--accent-emerald)] transition-colors">
-                  Skills &amp; Interests
+              {/* Skills */}
+              <div ref={skillRef} className="relative">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+                  Skills & Technologies
                 </label>
 
                 {selectedSkills.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mb-3">
+                  <div className="flex flex-wrap gap-1.5 mb-2">
                     {selectedSkills.map((s) => (
                       <span
                         key={s}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--bg-primary)] border border-[var(--border-subtle)] text-[var(--text-primary)] shadow-sm group/skill hover:border-[var(--accent-indigo)] transition-all"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-[var(--text-secondary)]"
                       >
                         {s}
                         <button
+                          type="button"
                           onClick={() => removeSkill(s)}
-                          className="ml-1 text-[var(--text-muted)] hover:text-red-400 min-w-[20px] min-h-[20px] flex items-center justify-center rounded transition-colors"
+                          className="hover:text-red-400 text-[var(--text-tertiary)] ml-0.5 transition-colors"
                         >
-                          &times;
+                          ×
                         </button>
                       </span>
                     ))}
@@ -415,8 +455,8 @@ export default function Home() {
 
                 <input
                   type="text"
-                  placeholder="Search skills (e.g. Machine Learning)"
-                  className="input-field w-full rounded-xl px-4 py-3 min-h-[44px] text-sm"
+                  placeholder="Type to add skills..."
+                  className="input-base w-full px-3 py-2 text-sm"
                   value={skillSearch}
                   onChange={(e) => {
                     setSkillSearch(e.target.value);
@@ -426,23 +466,23 @@ export default function Home() {
                 />
 
                 {showSkillDropdown && filteredSkills.length > 0 && (
-                  <div className="dropdown-menu absolute z-20 mt-2 w-full max-h-64 overflow-y-auto rounded-xl shadow-2xl shadow-[var(--bg-primary)]">
+                  <div className="absolute z-20 mt-1 w-full max-h-52 overflow-y-auto rounded-lg bg-[var(--bg-surface-elevated)] border border-[var(--border-strong)] shadow-xl">
                     {filteredSkills.map(({ category, skills }) => (
-                      <div key={category}>
-                        <div className="px-4 py-2 text-[10px] font-bold text-[var(--text-ghost)] uppercase tracking-[0.2em] sticky top-0 bg-[var(--bg-surface)] backdrop-blur-md">
+                      <div key={category} className="border-b border-[var(--border-subtle)] last:border-0">
+                        <div className="px-3 py-1.5 text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] bg-[var(--bg-subtle)] sticky top-0">
                           {category}
                         </div>
                         {skills.map((s) => (
                           <div
                             key={s}
-                            className="dropdown-item px-4 py-2.5 text-sm text-[var(--text-secondary)] cursor-pointer min-h-[44px] flex items-center"
+                            className="px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:text-white hover:bg-[var(--bg-surface-hover)] cursor-pointer"
                             onClick={() => {
                               setSelectedSkills((prev) => [...prev, s]);
                               setSkillSearch("");
                               setShowSkillDropdown(false);
                             }}
                           >
-                            {s}
+                            + {s}
                           </div>
                         ))}
                       </div>
@@ -451,514 +491,434 @@ export default function Home() {
                 )}
               </div>
 
-              {/* CAREER GOAL */}
-              <div className="group">
-                <label className="block text-xs font-semibold text-[var(--text-muted)] mb-2 uppercase tracking-[0.1em] group-focus-within:text-[var(--accent-emerald)] transition-colors">
-                  Career Goal
+              {/* Career Goal */}
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+                  Career Track Target
                 </label>
                 <select
-                  className="input-field w-full rounded-xl px-4 py-3 min-h-[44px] text-sm appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23475569%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[length:0.65rem_auto]"
+                  className="input-base w-full px-3 py-2 text-sm"
                   value={goal}
                   onChange={(e) => setGoal(e.target.value)}
                 >
-                  <option value="">Select Goal</option>
+                  <option value="">Select track...</option>
                   {GOALS.map((g) => (
-                    <option key={g} value={g}>
+                    <option key={g} value={g} className="bg-[var(--bg-surface)]">
                       {g}
                     </option>
                   ))}
                 </select>
               </div>
 
-              {/* DIVIDER */}
-              <div className="border-t border-[var(--border-subtle)] my-2" />
-
-              {/* CATEGORY TOGGLES */}
-              <div>
-                <label className="block text-xs font-semibold text-[var(--text-muted)] mb-3 uppercase tracking-[0.1em]">
+              {/* Opportunity Type Toggles */}
+              <div className="pt-2 border-t border-[var(--border-subtle)]">
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-2">
                   Opportunity Types
                 </label>
-                <div className="flex flex-col gap-2">
-                  {CATEGORIES.map(({ id, label, icon }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => toggleCategory(id)}
-                      className={`pill-toggle w-full px-4 py-3 min-h-[44px] rounded-xl text-sm font-medium tracking-wide flex items-center justify-between transition-all ${
-                        selectedCategories.includes(id) ? "active border-[var(--accent-emerald)] bg-[var(--accent-emerald)]/10 text-[var(--accent-emerald)]" : "border-[var(--border-subtle)] text-[var(--text-secondary)]"
-                      }`}
-                    >
-                      <span className="flex items-center gap-2">{icon} {label}</span>
-                      <div className={`w-8 h-4 rounded-full flex items-center p-0.5 transition-colors ${selectedCategories.includes(id) ? 'bg-[var(--accent-emerald)]' : 'bg-[var(--border-subtle)]'}`}>
-                        <div className={`w-3 h-3 rounded-full bg-white shadow-sm transition-transform ${selectedCategories.includes(id) ? 'translate-x-4' : 'translate-x-0'}`}></div>
-                      </div>
-                    </button>
-                  ))}
+                <div className="grid grid-cols-3 gap-1.5">
+                  {CATEGORIES.map(({ id, label }) => {
+                    const active = selectedCategories.includes(id);
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => toggleCategory(id)}
+                        className={`filter-chip py-1.5 px-2 text-center text-xs truncate ${
+                          active ? "active" : ""
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* CONDITIONAL PREFERENCES */}
-              {(selectedCategories.includes("Internship") ||
-                selectedCategories.includes("Certification")) && (
-                <div className="space-y-4 pt-2 fade-in bg-[var(--bg-primary)]/50 p-4 rounded-xl border border-[var(--border-subtle)]">
-                  <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-[0.1em] flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
-                    Refine Parameters
-                  </p>
-
-                  {selectedCategories.includes("Internship") && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-[10px] text-[var(--text-secondary)] mb-1.5 uppercase tracking-wider">Mode</label>
-                        <select
-                          className="input-field w-full rounded-lg px-3 py-2.5 min-h-[44px] text-sm appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23475569%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[length:0.65rem_auto]"
-                          value={mode}
-                          onChange={(e) => setMode(e.target.value)}
-                        >
-                          <option>Any</option>
-                          <option>Remote</option>
-                          <option>On-site</option>
-                          <option>Hybrid</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-[var(--text-secondary)] mb-1.5 uppercase tracking-wider">City</label>
-                        <input
-                          type="text"
-                          placeholder="e.g. SF"
-                          className="input-field w-full rounded-lg px-3 py-2.5 min-h-[44px] text-sm"
-                          value={city}
-                          onChange={(e) => setCity(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedCategories.includes("Certification") && (
-                    <div>
-                      <label className="block text-[10px] text-[var(--text-secondary)] mb-1.5 uppercase tracking-wider">Budget</label>
-                      <select
-                        className="input-field w-full rounded-lg px-3 py-2.5 min-h-[44px] text-sm appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23475569%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[position:right_1rem_center] bg-[length:0.65rem_auto]"
-                        value={budget}
-                        onChange={(e) => setBudget(e.target.value)}
-                      >
-                        <option>Free only</option>
-                        <option>Paid ok</option>
-                      </select>
-                    </div>
-                  )}
+              {/* Additional parameters if Internship / Certification is selected */}
+              {selectedCategories.includes("Internship") && (
+                <div className="pt-2 border-t border-[var(--border-subtle)] grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] text-[var(--text-tertiary)] mb-1">
+                      Internship Mode
+                    </label>
+                    <select
+                      className="input-base w-full px-2.5 py-1.5 text-xs"
+                      value={mode}
+                      onChange={(e) => setMode(e.target.value)}
+                    >
+                      <option>Any</option>
+                      <option>Remote</option>
+                      <option>On-site</option>
+                      <option>Hybrid</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-[var(--text-tertiary)] mb-1">
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Bangalore"
+                      className="input-base w-full px-2.5 py-1.5 text-xs"
+                      value={city}
+                      onChange={(e) => setCity(e.target.value)}
+                    />
+                  </div>
                 </div>
               )}
 
-              {/* SUBMIT */}
+              {selectedCategories.includes("Certification") && (
+                <div>
+                  <label className="block text-[11px] text-[var(--text-tertiary)] mb-1">
+                    Certification Cost
+                  </label>
+                  <select
+                    className="input-base w-full px-2.5 py-1.5 text-xs"
+                    value={budget}
+                    onChange={(e) => setBudget(e.target.value)}
+                  >
+                    <option>Free only</option>
+                    <option>Paid ok</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Submit CTA */}
               <button
-                onClick={handleSearch}
+                type="submit"
                 disabled={isLoading || !isFormValid}
-                className="btn-tactile btn-primary w-full mt-4 min-h-[52px] py-3.5 px-4 rounded-xl text-[15px] tracking-wide font-semibold shadow-lg shadow-[var(--accent-emerald)]/10"
+                className="btn-primary w-full py-2.5 text-sm mt-2"
               >
                 {isLoading ? (
-                  <span className="flex items-center justify-center gap-3">
-                    <span className="loader-dot" />
-                    <span className="loader-dot" />
-                    <span className="loader-dot" />
-                    <span className="ml-1 opacity-80">Synthesizing Results...</span>
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin w-4 h-4 text-black" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <span>{status === "searching" ? "Searching indexes..." : "Verifying links..."}</span>
                   </span>
                 ) : (
                   "Find Opportunities"
                 )}
               </button>
-            </div>
+            </form>
           </aside>
 
-          {/* ─── RIGHT: RESULTS ─── */}
-          <main className="space-y-6 min-w-0">
+          {/* ── RIGHT: Results Pane ── */}
+          <main className="space-y-6">
 
-            {/* Saved Toggle */}
-            {savedOpportunities.length > 0 && (
-              <div className="flex justify-end mb-4">
-                <button
-                  onClick={() => setShowSaved(!showSaved)}
-                  className="btn-tactile glass-card px-5 py-2.5 min-h-[44px] rounded-xl text-xs font-semibold tracking-wide flex items-center gap-2 hover:bg-[var(--bg-surface-hover)] transition-colors"
-                >
-                  <span className="text-sm">🔖</span>
-                  {showSaved ? "Hide Saved" : `View Saved (${savedOpportunities.length})`}
-                </button>
-              </div>
-            )}
-
-            {/* ── SAVED OPPORTUNITIES ── */}
+            {/* ── Saved Opportunities View (When Opened) ── */}
             {showSaved && (
-              <div className="space-y-5 mb-12 fade-in">
-                <h3 className="text-2xl font-bold tracking-tight text-[var(--text-primary)] flex items-center gap-3">
-                  <span className="text-[var(--accent-emerald)]">Your Vault</span>
-                </h3>
-
-                {savedOpportunities.length === 0 ? (
-                  <div className="glass-panel rounded-2xl p-8 text-center text-[var(--text-muted)] border-dashed">
-                    No saved opportunities yet.
+              <section className="surface-card p-5 border-amber-500/20 bg-amber-500/[0.02]">
+                <div className="flex items-center justify-between pb-3 mb-4 border-b border-[var(--border-subtle)]">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                    </svg>
+                    <h3 className="text-sm font-semibold text-white">Saved Opportunities ({savedOpportunities.length})</h3>
                   </div>
-                ) : (
-                  savedOpportunities.map((opp, idx) => (
-                    <div
-                      key={`saved-${idx}`}
-                      className="glass-card rounded-2xl p-6 relative card-enter"
-                      style={{ animationDelay: `${idx * 80}ms`, borderColor: 'var(--border-active)' }}
-                    >
-                      <div className="absolute top-0 left-0 w-[3px] h-full bg-[var(--accent-emerald)] rounded-l-2xl" />
-
-                      <div className="flex justify-between items-start pl-4">
-                        <div className="space-y-1.5 min-w-0">
-                          <span className="inline-block text-[10px] font-bold text-[var(--accent-emerald)] uppercase tracking-[0.15em] bg-[var(--accent-emerald)]/10 px-2 py-0.5 rounded">
-                            {categoryIcons[opp.type] || "📌"} {opp.type}
-                          </span>
-                          <h3 className="text-lg font-bold text-[var(--text-primary)] leading-snug">
-                            {opp.name}
-                          </h3>
-                        </div>
-                        <span className="text-[10px] font-mono text-[var(--text-secondary)] bg-[var(--bg-primary)] px-2 py-1 rounded-md ml-4 mt-1 border border-[var(--border-subtle)]">
-                          ⏱ {opp.deadline}
-                        </span>
-                      </div>
-
-                      <div className="pl-4 mt-4 space-y-2">
-                        <p className="text-xs text-[var(--text-secondary)] flex items-center gap-2">
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                          <span className="text-[var(--text-primary)] font-medium">{opp.time_commitment}</span>
-                        </p>
-                        {opp.description && (
-                          <p className="text-sm text-[var(--text-muted)] leading-relaxed">
-                            {opp.description}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex items-center justify-between pl-4 pt-5 mt-5 border-t border-[var(--border-subtle)]/50">
-                        <button
-                          onClick={() => handleSaveOpp(opp)}
-                          className="btn-tactile text-red-400 hover:text-red-300 bg-red-500/5 hover:bg-red-500/10 px-4 py-2 min-h-[44px] rounded-lg text-xs font-semibold transition-colors"
-                        >
-                          Remove
-                        </button>
-                        <a
-                          href={opp.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="link-sweep text-sm font-bold text-[var(--accent-emerald)] flex items-center gap-1.5 min-h-[44px] px-2"
-                        >
-                          Apply Now <span className="text-lg leading-none">→</span>
-                        </a>
-                      </div>
-                    </div>
-                  ))
-                )}
-
-                {/* Email trigger for saved */}
-                <div className="mt-8 p-6 glass-panel rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
-                  <div className="text-center sm:text-left">
-                    <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">Inbox Delivery</p>
-                    <p className="text-xs text-[var(--text-muted)]">Get this curated list sent to your email.</p>
-                  </div>
-                  <div className="flex flex-col items-center sm:items-end">
-                    <button
-                      onClick={() => handleTriggerEmail(emailToSave)}
-                      disabled={!emailToSave || isSendingEmail || savedOpportunities.length === 0}
-                      className="btn-tactile btn-primary px-6 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold tracking-wide flex items-center gap-2"
-                    >
-                      {isSendingEmail ? (
-                        <>
-                          <span className="loader-dot" />
-                          <span className="loader-dot" />
-                          <span className="loader-dot" />
-                          <span className="ml-1">Dispatching</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                          </svg>
-                          Send to Email
-                        </>
-                      )}
-                    </button>
-                    {!emailToSave && (
-                      <p className="text-[10px] text-[var(--accent-emerald)]/70 mt-2 font-mono">
-                        Requires email registration below
-                      </p>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => setShowSaved(false)}
+                    className="text-xs text-[var(--text-tertiary)] hover:text-white"
+                  >
+                    Close
+                  </button>
                 </div>
 
-                <div className="border-t border-dashed border-[var(--border-subtle)] my-10" />
+                {savedOpportunities.length === 0 ? (
+                  <p className="text-xs text-[var(--text-tertiary)] py-4 text-center">
+                    No saved opportunities yet. Click &quot;Save&quot; on any card below.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {savedOpportunities.map((opp, idx) => (
+                      <div
+                        key={`saved-${idx}`}
+                        className="bg-[var(--bg-subtle)] border border-[var(--border-subtle)] rounded-lg p-3.5 flex items-center justify-between gap-4"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-[var(--bg-surface)] text-[var(--text-secondary)] border border-[var(--border-subtle)]">
+                              {opp.type}
+                            </span>
+                            <span className="font-medium text-white truncate">{opp.name}</span>
+                          </div>
+                          <p className="text-[11px] text-[var(--text-tertiary)] mt-1 truncate">
+                            {opp.organization ? `${opp.organization} · ` : ""}Deadline: {opp.deadline}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => handleSaveOpp(opp)}
+                            className="text-xs text-red-400 hover:text-red-300 px-2 py-1"
+                          >
+                            Remove
+                          </button>
+                          <a
+                            href={opp.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="btn-secondary text-xs px-2.5 py-1"
+                          >
+                            Apply ↗
+                          </a>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Email Digest Trigger */}
+                    <div className="pt-3 mt-4 border-t border-[var(--border-subtle)] flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div className="text-left w-full sm:w-auto">
+                        <p className="text-xs font-medium text-white">Send to Email</p>
+                        <p className="text-[11px] text-[var(--text-tertiary)]">
+                          Export these saved opportunities to your inbox.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <input
+                          type="email"
+                          placeholder="Your email address"
+                          className="input-base px-2.5 py-1 text-xs w-full sm:w-56"
+                          value={emailToSave}
+                          onChange={(e) => setEmailToSave(e.target.value)}
+                        />
+                        <button
+                          onClick={handleSaveEmail}
+                          disabled={!emailToSave || isSendingEmail}
+                          className="btn-secondary text-xs px-3 py-1.5 shrink-0"
+                        >
+                          {isSendingEmail ? "Sending..." : "Send"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* ── Idle State (Before Search) ── */}
+            {status === "idle" && (
+              <div className="surface-card p-10 text-center flex flex-col items-center justify-center min-h-[380px]">
+                <div className="w-10 h-10 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-subtle)] flex items-center justify-center text-[var(--text-secondary)] mb-4">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="2" x2="12" y2="6" />
+                    <line x1="12" y1="18" x2="12" y2="22" />
+                    <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
+                    <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
+                    <line x1="2" y1="12" x2="6" y2="12" />
+                    <line x1="18" y1="12" x2="22" y2="12" />
+                    <line x1="4.93" y1="19.07" x2="7.76" y2="16.24" />
+                    <line x1="16.24" y1="7.76" x2="19.07" y2="4.93" />
+                  </svg>
+                </div>
+                <h3 className="text-sm font-semibold text-white mb-1">Radar Ready</h3>
+                <p className="text-xs text-[var(--text-tertiary)] max-w-sm leading-relaxed mb-4">
+                  Select your academic branch, year, and target career track on the left to scan live, verified hackathons, internships, and certifications.
+                </p>
+                <div className="flex items-center gap-2 text-[11px] font-mono text-[var(--text-disabled)]">
+                  <span>Backend: Render</span>
+                  <span>•</span>
+                  <span>Engine: Gemini AI + Live Web</span>
+                </div>
               </div>
             )}
 
-            {/* ── AGENT STRATEGY (queries used) ── */}
-            {status === "done" && queriesUsed.length > 0 && (
-              <div className="glass-panel rounded-2xl p-6 fade-in mb-6 bg-[var(--bg-primary)]/80">
-                <h3 className="text-[10px] font-bold text-[var(--text-ghost)] uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-[var(--accent-indigo)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 9l3 3-3 3m5 0h3M4 15V9a2 2 0 012-2h12a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2z" />
+            {/* ── Loading State ── */}
+            {isLoading && (
+              <div className="surface-card p-10 text-center flex flex-col items-center justify-center min-h-[380px]">
+                <div className="relative mb-5">
+                  <svg className="animate-spin w-6 h-6 text-[var(--text-secondary)]" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+                    <path className="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                   </svg>
-                  Agent Execution Log
+                </div>
+                <h3 className="text-sm font-medium text-white mb-1 font-mono">
+                  {status === "searching" ? "Querying Opportunity Indexes..." : "Validating Application Links..."}
                 </h3>
-                <div className="space-y-2">
-                  {queriesUsed.map((q, idx) => (
-                    <div
-                      key={idx}
-                      className="text-xs font-mono text-[var(--text-secondary)] p-3 rounded-lg border border-[var(--border-subtle)] bg-[#050810]"
-                    >
-                      <span className="text-[var(--accent-indigo)] mr-2 select-none">❯</span>
+                <p className="text-xs text-[var(--text-tertiary)] max-w-sm">
+                  {status === "searching"
+                    ? "Searching verified platforms for current deadlines matching your skills."
+                    : "Pinging URLs and eliminating expired postings."}
+                </p>
+              </div>
+            )}
+
+            {/* ── Empty Results State ── */}
+            {status === "done" && visibleOpportunities.length === 0 && (
+              <div className="surface-card p-10 text-center">
+                <p className="text-sm font-medium text-white mb-1">No active listings found</p>
+                <p className="text-xs text-[var(--text-tertiary)] max-w-md mx-auto mb-4">
+                  No verified opportunities currently matched this specific filter combination. Try selecting additional skills or broadening your preferences.
+                </p>
+              </div>
+            )}
+
+            {/* ── Results Header ── */}
+            {status === "done" && visibleOpportunities.length > 0 && (
+              <div className="flex items-center justify-between pb-2 border-b border-[var(--border-subtle)]">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                  <span className="text-xs font-semibold text-white">
+                    {visibleOpportunities.length} Verified Match{visibleOpportunities.length === 1 ? "" : "es"}
+                  </span>
+                </div>
+                <div className="text-[11px] font-mono text-[var(--text-tertiary)]">
+                  {selectedCategories.join(" · ")}
+                </div>
+              </div>
+            )}
+
+            {/* ── Search Execution Log (Technical Drawer) ── */}
+            {status === "done" && queriesUsed.length > 0 && (
+              <details className="text-xs text-[var(--text-tertiary)] border border-[var(--border-subtle)] rounded-lg p-3 bg-[var(--bg-subtle)] cursor-pointer">
+                <summary className="font-mono text-[11px] text-[var(--text-secondary)] select-none">
+                  Search Query Diagnostics ({queriesUsed.length} queries)
+                </summary>
+                <div className="mt-2 space-y-1 font-mono text-[11px] text-[var(--text-tertiary)]">
+                  {queriesUsed.map((q, i) => (
+                    <div key={i} className="truncate">
+                      <span className="text-[var(--text-disabled)] mr-2">{i + 1}.</span>
                       {q}
                     </div>
                   ))}
                 </div>
-              </div>
+              </details>
             )}
 
-            {/* ── LOADING STATE ── */}
-            {isLoading && (
-              <div className="flex flex-col items-center justify-center h-80 glass-panel rounded-3xl border border-[var(--accent-emerald)]/20 shadow-[0_0_40px_rgba(16,185,129,0.05)]">
-                <div className="relative mb-8">
-                  <div className="absolute inset-0 bg-[var(--accent-emerald)] rounded-full blur-xl opacity-20 animate-pulse"></div>
-                  <div className="flex gap-3 relative">
-                    <span className="loader-dot w-2 h-2" />
-                    <span className="loader-dot w-2 h-2" />
-                    <span className="loader-dot w-2 h-2" />
-                  </div>
-                </div>
-                <h3 className="font-mono text-base text-[var(--text-primary)] font-medium mb-2 flex items-center gap-2">
-                  <span className="text-[var(--accent-emerald)]">System:</span>
-                  <span className="cursor-blink">
-                    {status === "searching" ? "Synthesizing parameters..." : "Validating active endpoints..."}
-                  </span>
-                </h3>
-                <p className="font-mono text-[11px] text-[var(--text-secondary)] mt-1 max-w-sm text-center leading-relaxed">
-                  {status === "searching"
-                    ? "Executing high-precision semantic search against targeted databases."
-                    : "Pinging URLs, verifying deadlines, mapping real-time availability."}
-                </p>
-              </div>
-            )}
+            {/* ── Opportunity Cards List ── */}
+            {status === "done" && (
+              <div className="space-y-4">
+                {visibleOpportunities.map((opp, idx) => {
+                  const isSaved = actionStatuses[opp.name] === "saved";
+                  const isApplied = actionStatuses[opp.name] === "applied";
 
-            {/* ── IDLE STATE ── */}
-            {status === "idle" && (
-              <div className="flex flex-col items-center justify-center h-80 glass-panel rounded-3xl relative overflow-hidden group">
-                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PHBhdGggZD0iTTAgMGg0MHY0MEgweiIgZmlsbD0ibm9uZSIvPjxjaXJjbGUgY3g9IjIwIiBjeT0iMjAiIHI9IjEiIGZpbGw9InJnYmEoOTksIDEwMiwgMjQxLCAwLjE1KSIvPjwvc3ZnPg==')] opacity-50 group-hover:opacity-100 transition-opacity duration-1000"></div>
-                <div className="relative z-10 flex flex-col items-center">
-                  <svg className="w-12 h-12 text-[var(--border-subtle)] mb-6 group-hover:text-[var(--accent-emerald)]/30 transition-colors duration-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
-                  </svg>
-                  <p className="text-[var(--text-secondary)] text-base text-center max-w-sm leading-relaxed font-light">
-                    Configure your parameters and initialize <span className="text-[var(--text-primary)] font-medium">Find Opportunities</span> to deploy the agent.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* ── NO RESULTS ── */}
-            {status === "done" && opportunities.length === 0 && queriesUsed.length > 0 && (
-              <div className="flex flex-col items-center justify-center h-80 glass-panel rounded-3xl border border-red-500/20 bg-red-500/5">
-                <svg className="w-10 h-10 text-red-400/50 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-                <p className="text-red-400 font-semibold text-base mb-2">
-                  Zero exact matches verified.
-                </p>
-                <p className="text-[var(--text-secondary)] text-sm max-w-md text-center leading-relaxed">
-                  Fallback search executed but active endpoints within your highly specific niche were not found. Broaden your skills or adjust parameters.
-                </p>
-              </div>
-            )}
-
-            {/* ── RESULTS COUNT ── */}
-            {status === "done" && opportunities.length > 0 && (
-              <div className="flex items-center gap-3 py-2 fade-in">
-                <div className="w-1.5 h-1.5 rounded-full bg-[var(--accent-emerald)] animate-pulse"></div>
-                <p className="text-xs text-[var(--text-secondary)] tracking-wider uppercase font-semibold">
-                  <span className="text-[var(--text-primary)]">{opportunities.length}</span> Curated Matches <span className="text-[var(--text-muted)] mx-1">|</span> {selectedCategories.join(" · ")}
-                </p>
-              </div>
-            )}
-
-            {/* ── OPPORTUNITY CARDS ── */}
-            <div className="space-y-6">
-              {status === "done" &&
-                opportunities.map((opp, idx) => (
-                  <div
-                    key={idx}
-                    className="glass-card group rounded-2xl p-6 md:p-7 relative card-enter"
-                    style={{ animationDelay: `${idx * 120}ms` }}
-                  >
-                    {/* Refined Left accent bar */}
-                    <div className="absolute top-0 left-0 w-[4px] h-full rounded-l-2xl bg-gradient-to-b from-[var(--accent-indigo)] to-[var(--accent-emerald)] opacity-60 group-hover:opacity-100 transition-opacity" />
-
-                    {/* Header */}
-                    <div className="flex flex-col md:flex-row justify-between items-start pl-3 md:pl-5 gap-4">
-                      <div className="space-y-2 min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <span className="text-[10px] font-bold text-[var(--accent-emerald)] uppercase tracking-[0.2em] bg-[var(--accent-emerald)]/10 px-2.5 py-1 rounded-md">
-                            {categoryIcons[opp.type] || "📌"} {opp.type}
+                  return (
+                    <article
+                      key={idx}
+                      className="surface-card p-5 relative transition-all"
+                    >
+                      {/* Top Meta row */}
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-[var(--bg-subtle)] text-[var(--text-secondary)] border border-[var(--border-subtle)]">
+                            {opp.type}
                           </span>
-                          <span className="text-[10px] font-mono text-[var(--accent-emerald)]/60 tracking-wider flex items-center gap-1 border border-[var(--accent-emerald)]/20 px-2 py-0.5 rounded-md">
-                            <span className="w-1 h-1 rounded-full bg-[var(--accent-emerald)]"></span> Verified
-                          </span>
+                          {opp.organization && (
+                            <span className="text-xs text-[var(--text-secondary)] font-medium">
+                              {opp.organization}
+                            </span>
+                          )}
                         </div>
-                        <h3 className="kinetic-title text-xl md:text-2xl text-[var(--text-primary)] leading-tight mt-1">
-                          {opp.name}
-                        </h3>
-                        {opp.organization && (
-                          <p className="text-sm font-medium text-[var(--text-secondary)] flex items-center gap-2">
-                            <svg className="w-4 h-4 text-[var(--text-muted)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                            {opp.organization}
-                          </p>
-                        )}
-                      </div>
-                      <div className="shrink-0 bg-[var(--bg-primary)] px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] text-right">
-                        <span className="block text-[10px] text-[var(--text-muted)] uppercase tracking-widest mb-0.5">Deadline</span>
-                        <span className="text-xs font-mono text-[var(--text-primary)] whitespace-nowrap">
-                          {opp.deadline}
-                        </span>
-                      </div>
-                    </div>
 
-                    {/* Details */}
-                    <div className="pl-3 md:pl-5 mt-5 space-y-3">
-                      <p className="text-xs text-[var(--text-secondary)] flex items-center gap-2 bg-[var(--bg-primary)]/40 inline-flex px-3 py-1.5 rounded-md border border-[var(--border-subtle)]">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                        Commitment: <span className="text-[var(--text-primary)] font-medium">{opp.time_commitment}</span>
-                      </p>
+                        <div className="flex items-center gap-1.5 text-[11px] font-mono text-[var(--text-tertiary)]">
+                          <span>Deadline:</span>
+                          <span className="text-[var(--text-secondary)]">{opp.deadline || "Open"}</span>
+                        </div>
+                      </div>
+
+                      {/* Title */}
+                      <h3 className="text-base font-semibold text-white tracking-tight mb-2">
+                        {opp.name}
+                      </h3>
+
+                      {/* Description */}
                       {opp.description && (
-                        <p className="text-[15px] text-[var(--text-secondary)] leading-relaxed max-w-3xl">
+                        <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-3">
                           {opp.description}
                         </p>
                       )}
-                    </div>
 
-                    {/* Why it fits — AI Insight Panel */}
-                    <div className="pl-3 md:pl-5 mt-6">
-                      <div className="bg-[var(--bg-primary)]/60 border border-[var(--border-subtle)] rounded-xl p-4 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-[var(--accent-indigo)]/50 to-transparent"></div>
-                        <div className="flex gap-3">
-                          <svg className="w-5 h-5 text-[var(--accent-indigo)] shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                          </svg>
-                          <div>
-                            <span className="text-[10px] font-bold text-[var(--text-ghost)] uppercase tracking-[0.2em] block mb-1">AI Insight</span>
-                            <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
-                              {opp.reason}
-                            </p>
-                          </div>
+                      {/* Time commitment */}
+                      {opp.time_commitment && (
+                        <div className="text-[11px] text-[var(--text-tertiary)] flex items-center gap-1.5 mb-3">
+                          <span className="text-[var(--text-disabled)]">Commitment:</span>
+                          <span>{opp.time_commitment}</span>
                         </div>
-                      </div>
-                    </div>
+                      )}
 
-                    {/* Action bar */}
-                    <div className="flex flex-col sm:flex-row items-center justify-between pl-3 md:pl-5 pt-5 mt-6 border-t border-[var(--border-subtle)]/50 gap-4">
-                      <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                        <button
-                          onClick={() => handleSaveOpp(opp)}
-                          className={`btn-tactile px-4 py-2 min-h-[44px] rounded-lg text-xs font-bold uppercase tracking-wider flex-1 sm:flex-none transition-colors ${
-                            actionStatuses[opp.name] === "saved"
-                              ? "badge-saved"
-                              : "badge-default bg-[var(--bg-primary)]/50"
-                          }`}
-                        >
-                          {actionStatuses[opp.name] === "saved" ? "✓ Saved" : "Save"}
-                        </button>
-                        <button
-                          onClick={() =>
-                            updateStatus(
-                              opp,
-                              actionStatuses[opp.name] === "applied" ? "" : "applied"
-                            )
-                          }
-                          className={`btn-tactile px-4 py-2 min-h-[44px] rounded-lg text-xs font-bold uppercase tracking-wider flex-1 sm:flex-none transition-colors ${
-                            actionStatuses[opp.name] === "applied"
-                              ? "badge-applied"
-                              : "badge-default bg-[var(--bg-primary)]/50"
-                          }`}
-                        >
-                          {actionStatuses[opp.name] === "applied" ? "✓ Applied" : "Applied"}
-                        </button>
-                        <button
-                          onClick={() =>
-                            updateStatus(
-                              opp,
-                              actionStatuses[opp.name] === "rejected" ? "" : "rejected"
-                            )
-                          }
-                          className={`btn-tactile px-4 py-2 min-h-[44px] rounded-lg text-xs font-bold uppercase tracking-wider flex-1 sm:flex-none transition-colors ${
-                            actionStatuses[opp.name] === "rejected"
-                              ? "badge-rejected"
-                              : "badge-default bg-[var(--bg-primary)]/50"
-                          }`}
-                        >
-                          {actionStatuses[opp.name] === "rejected" ? "✗ Hidden" : "Hide"}
-                        </button>
-                      </div>
-                      <a
-                        href={opp.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="link-sweep text-[15px] font-bold text-[var(--accent-emerald)] flex items-center justify-center gap-2 min-h-[44px] px-4 py-2 rounded-lg hover:bg-[var(--accent-emerald)]/10 transition-colors w-full sm:w-auto"
-                      >
-                        Launch App <span className="text-lg leading-none">→</span>
-                      </a>
-                    </div>
-                  </div>
-                ))}
-            </div>
+                      {/* Why it matches (Clean, honest explanation) */}
+                      {opp.reason && (
+                        <div className="p-3 rounded-lg bg-[var(--bg-subtle)] border border-[var(--border-subtle)] text-xs text-[var(--text-secondary)] mb-4">
+                          <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--text-tertiary)] block mb-1">
+                            Match Reason
+                          </span>
+                          <p className="leading-relaxed">{opp.reason}</p>
+                        </div>
+                      )}
 
-            {/* ── EMAIL CAPTURE ── */}
-            {status === "done" && opportunities.length > 0 && (
-              <div
-                className="glass-panel mt-12 rounded-3xl p-8 md:p-12 flex flex-col items-center text-center card-enter bg-gradient-to-b from-[var(--bg-surface)] to-[var(--bg-primary)] relative overflow-hidden"
-                style={{ borderColor: 'rgba(99, 102, 241, 0.2)' }}
-              >
-                <div className="absolute -top-24 -right-24 w-48 h-48 bg-[var(--accent-indigo)]/10 rounded-full blur-3xl pointer-events-none"></div>
-                <h3 className="text-2xl font-bold tracking-tight mb-2 text-[var(--text-primary)]">
-                  Secure Your Stack
-                </h3>
-                <p className="text-sm text-[var(--text-secondary)] mb-8 max-w-md font-light leading-relaxed">
-                  Register your email to sync your saved opportunities and preferences across sessions.
-                </p>
-                {savedEmailSuccess ? (
-                  <div className="text-[var(--accent-emerald)] font-medium text-sm badge-applied px-6 py-3 rounded-xl fade-in flex items-center gap-2 border border-[var(--accent-emerald)]/30">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                    Identity verified. Preferences synchronized.
-                  </div>
-                ) : (
-                  <div className="flex flex-col sm:flex-row w-full max-w-lg gap-3">
-                    <input
-                      type="email"
-                      placeholder="hello@example.com"
-                      className="input-field flex-1 rounded-xl px-5 py-3 min-h-[52px] text-base"
-                      value={emailToSave}
-                      onChange={(e) => setEmailToSave(e.target.value)}
-                    />
-                    <button
-                      onClick={handleSaveEmail}
-                      disabled={!emailToSave}
-                      className="btn-tactile btn-primary px-8 py-3 min-h-[52px] rounded-xl text-sm font-bold tracking-wide w-full sm:w-auto"
-                    >
-                      Initialize Sync
-                    </button>
-                  </div>
-                )}
+                      {/* Actions Footer */}
+                      <div className="pt-3 border-t border-[var(--border-subtle)] flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-1.5">
+                          {/* Save toggle */}
+                          <button
+                            onClick={() => handleSaveOpp(opp)}
+                            className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+                              isSaved
+                                ? "bg-amber-500/10 border-amber-500/30 text-amber-300"
+                                : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-white hover:border-[var(--border-hover)]"
+                            }`}
+                          >
+                            {isSaved ? "Saved ✓" : "Save"}
+                          </button>
+
+                          {/* Applied toggle */}
+                          <button
+                            onClick={() =>
+                              updateStatus(opp, isApplied ? "" : "applied")
+                            }
+                            className={`text-xs px-2.5 py-1 rounded border transition-colors ${
+                              isApplied
+                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                                : "border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-white hover:border-[var(--border-hover)]"
+                            }`}
+                          >
+                            {isApplied ? "Applied ✓" : "Mark Applied"}
+                          </button>
+
+                          {/* Hide button */}
+                          <button
+                            onClick={() => updateStatus(opp, "rejected")}
+                            className="text-xs px-2 py-1 text-[var(--text-disabled)] hover:text-red-400 transition-colors"
+                            title="Hide from list"
+                          >
+                            Hide
+                          </button>
+                        </div>
+
+                        {/* Direct application link */}
+                        <a
+                          href={opp.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-secondary text-xs px-3 py-1.5 font-medium flex items-center gap-1.5"
+                        >
+                          <span>Apply</span>
+                          <svg className="w-3 h-3 text-[var(--text-tertiary)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                            <polyline points="15 3 21 3 21 9" />
+                            <line x1="10" y1="14" x2="21" y2="3" />
+                          </svg>
+                        </a>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </main>
         </div>
 
-        {/* ── FOOTER ── */}
-        <footer className="mt-32 pb-10 text-center border-t border-[var(--border-subtle)] pt-10 fade-in">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-ghost)]"></span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-ghost)]"></span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-ghost)]"></span>
+        {/* ── Footer ── */}
+        <footer className="mt-16 pt-6 border-t border-[var(--border-subtle)] text-center text-xs text-[var(--text-tertiary)] flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-white font-medium">1waygo</span>
+            <span>·</span>
+            <span>Built by Anderson</span>
           </div>
-          <p className="text-[11px] text-[var(--text-ghost)] tracking-[0.2em] uppercase font-semibold">
-            © 2026 1waygo <span className="mx-2 font-normal">/</span> Engineered by Anderson
+          <p className="font-mono text-[11px] text-[var(--text-disabled)]">
+            Verified realtime data powered by Gemini &amp; Tavily Search
           </p>
         </footer>
       </div>
