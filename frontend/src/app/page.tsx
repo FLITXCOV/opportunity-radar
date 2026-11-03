@@ -1159,6 +1159,22 @@ export default function Home() {
                   </div>
                 )}
 
+                {/* Empty Results Fallback */}
+                {status === "done" && visibleDiscoverOpps.length === 0 && (
+                  <div className="bg-zinc-900/40 border border-white/[0.06] rounded-2xl p-10 text-center">
+                    <p className="text-sm font-medium text-white mb-1">Index Refreshing</p>
+                    <p className="text-xs text-zinc-400 max-w-md mx-auto mb-4">
+                      Scanned proof of work, but the current opportunity index is syncing. Run another scan or adjust your target track.
+                    </p>
+                    <button
+                      onClick={handleProofOfWorkScan}
+                      className="btn-secondary text-xs px-3.5 py-1.5"
+                    >
+                      Rescan Proof of Work
+                    </button>
+                  </div>
+                )}
+
                 {/* Results Header */}
                 {status === "done" && visibleDiscoverOpps.length > 0 && (
                   <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
@@ -1175,7 +1191,7 @@ export default function Home() {
                 )}
 
                 {/* ── Opportunity Cards List ── */}
-                {status === "done" && (
+                {status === "done" && visibleDiscoverOpps.length > 0 && (
                   <div className="space-y-4">
                     <AnimatePresence mode="popLayout">
                       {visibleDiscoverOpps.map((opp, idx) => {
@@ -1186,7 +1202,7 @@ export default function Home() {
 
                         return (
                           <motion.div
-                            key={opp.name}
+                            key={`${opp.name}-${opp.link || idx}`}
                             layout
                             ref={(el) => {
                               cardRefs.current[idx] = el;

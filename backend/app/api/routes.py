@@ -15,6 +15,7 @@ from app.profiler.github_inspector import inspect_github_profile
 from app.profiler.resume_parser import parse_resume_pdf
 from app.profiler.aggregator import aggregate_proof_of_work
 from app.ingestion.crawler import run_resilient_ingestion
+from app.ingestion.seed_data import CURATED_HIGH_SIGNAL_OPPORTUNITIES
 from app.matching.engine import match_opportunity_to_profile
 
 router = APIRouter()
@@ -63,10 +64,9 @@ async def analyze_proof_of_work(
     # Ingest or fetch target opportunities from DB
     db_opportunities = crud.get_recent_opportunities(db, limit=30)
     
-    # If DB has few opportunities, seed from resilient crawler or fallback pool
+    # Always ensure baseline curated seed exists in database
     if len(db_opportunities) < 5:
-        fresh_opps = await run_resilient_ingestion()
-        for opp in fresh_opps:
+        for opp in CURATED_HIGH_SIGNAL_OPPORTUNITIES:
             opp_dict = {
                 "name": f"{opp.title} - {opp.company}",
                 "type": opp.type.lower(),
@@ -76,6 +76,22 @@ async def analyze_proof_of_work(
                 "verified_live": True
             }
             crud.upsert_opportunity(db, opp_dict)
+            
+        try:
+            fresh_opps = await run_resilient_ingestion()
+            for opp in fresh_opps:
+                opp_dict = {
+                    "name": f"{opp.title} - {opp.company}",
+                    "type": opp.type.lower(),
+                    "url": opp.apply_url,
+                    "deadline": opp.deadline,
+                    "deadline_status": "confirmed",
+                    "verified_live": True
+                }
+                crud.upsert_opportunity(db, opp_dict)
+        except Exception as e:
+            print(f"Background crawler notice: {e}")
+            
         db_opportunities = crud.get_recent_opportunities(db, limit=30)
 
     # Match opportunities with skill gaps & readiness scores

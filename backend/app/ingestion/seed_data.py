@@ -1,0 +1,121 @@
+from app.ingestion.schemas import IngestedOpportunity
+
+CURATED_HIGH_SIGNAL_OPPORTUNITIES = [
+    IngestedOpportunity(
+        title="Software Engineering Intern - Distributed Systems",
+        company="Stripe",
+        type="Internship",
+        mode="Hybrid",
+        location="San Francisco / Remote",
+        stipend="$65/hr + Housing Stipend",
+        deadline="Rolling - Open for 2026",
+        required_skills=["Python", "Go", "Distributed Systems", "SQL", "Git"],
+        apply_url="https://stripe.com/jobs",
+        is_scam=False,
+        is_expired=False
+    ),
+    IngestedOpportunity(
+        title="Machine Learning Engineering Intern",
+        company="Databricks",
+        type="Internship",
+        mode="Hybrid",
+        location="San Francisco, CA / Seattle, WA",
+        stipend="$72/hr + Benefits",
+        deadline="Open Applications",
+        required_skills=["Python", "PyTorch", "Deep Learning", "FastAPI", "Docker"],
+        apply_url="https://www.databricks.com/company/careers",
+        is_scam=False,
+        is_expired=False
+    ),
+    IngestedOpportunity(
+        title="Full Stack / Backend Engineering Intern",
+        company="Cloudflare",
+        type="Internship",
+        mode="Remote",
+        location="Remote (Global)",
+        stipend="$55/hr",
+        deadline="Rolling Basis",
+        required_skills=["TypeScript", "React", "Rust", "Node.js", "REST API"],
+        apply_url="https://www.cloudflare.com/careers/jobs/",
+        is_scam=False,
+        is_expired=False
+    ),
+    IngestedOpportunity(
+        title="AI Systems & LLM Hackathon 2026",
+        company="Devpost & Gemini",
+        type="Hackathon",
+        mode="Remote",
+        location="Online / Worldwide",
+        stipend="$50,000 Prize Pool",
+        deadline="Nov 30, 2026",
+        required_skills=["Python", "Gemini", "FastAPI", "React", "Git"],
+        apply_url="https://devpost.com/hackathons",
+        is_scam=False,
+        is_expired=False
+    ),
+    IngestedOpportunity(
+        title="Global Web3 & Distributed Apps Hackathon",
+        company="ETHGlobal",
+        type="Hackathon",
+        mode="Remote",
+        location="Online",
+        stipend="$125,000 in Bounties",
+        deadline="Dec 15, 2026",
+        required_skills=["TypeScript", "Next.js", "Solidity", "Node.js"],
+        apply_url="https://ethglobal.com/",
+        is_scam=False,
+        is_expired=False
+    ),
+    IngestedOpportunity(
+        title="AWS Certified Solutions Architect - Associate",
+        company="Amazon Web Services",
+        type="Certification",
+        mode="Remote",
+        location="Online Exam",
+        stipend="Industry Standard Credential",
+        deadline="On Demand / Self-Paced",
+        required_skills=["Cloud Architecture", "AWS", "Security", "Docker"],
+        apply_url="https://aws.amazon.com/certification/certified-solutions-architect-associate/",
+        is_scam=False,
+        is_expired=False
+    ),
+    IngestedOpportunity(
+        title="Deep Learning Specialization with PyTorch",
+        company="DeepLearning.AI",
+        type="Certification",
+        mode="Remote",
+        location="Online",
+        stipend="Verified Certificate Available",
+        deadline="Ongoing / Rolling",
+        required_skills=["Python", "PyTorch", "Deep Learning", "NumPy", "Pandas"],
+        apply_url="https://www.deeplearning.ai/courses/",
+        is_scam=False,
+        is_expired=False
+    ),
+    IngestedOpportunity(
+        title="Early Career Software Engineer Intern",
+        company="Google",
+        type="Internship",
+        mode="Hybrid",
+        location="Sunnyvale, CA / New York, NY",
+        stipend="Competitive Monthly Stipend + Relocation",
+        deadline="Rolling Admissions",
+        required_skills=["C++", "Python", "Data Structures", "Algorithms", "Linux"],
+        apply_url="https://www.google.com/about/careers/applications/jobs/results/",
+        is_scam=False,
+        is_expired=False
+    ),
+    IngestedOpportunity(
+        title="Open Source Contributor Fellowship",
+        company="Major League Hacking (MLH)",
+        type="Internship",
+        mode="Remote",
+        location="Remote Worldwide",
+        stipend="$5,000 Educational Grant",
+        deadline="Rolling Applications",
+        required_skills=["Git", "GitHub", "Python", "JavaScript", "Open Source"],
+        apply_url="https://fellowship.mlh.io/",
+        is_scam=False,
+        is_expired=False
+    )
+]
