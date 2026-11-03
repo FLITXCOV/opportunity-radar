@@ -19,6 +19,10 @@ import {
   ChevronUp,
   Copy,
   Terminal,
+  FileText,
+  Clock,
+  Layers,
+  CheckCheck,
 } from "lucide-react";
 import { BRANCHES } from "../data/branches";
 import { SKILLS_BY_CATEGORY } from "../data/skills";
@@ -50,13 +54,36 @@ function getMatchScore(name: string): number {
   return 88 + (Math.abs(hash) % 11);
 }
 
+// Generate tailored cold outreach pitch
+function generatePitch(
+  opp: any,
+  userBranch: string,
+  userYear: string,
+  userSkills: string[]
+): string {
+  const skillsList =
+    userSkills.length > 0
+      ? userSkills.slice(0, 3).join(", ")
+      : "modern software engineering tools";
+  const org = opp.organization ? `at ${opp.organization}` : `for ${opp.name}`;
+  const role = opp.name;
+
+  return `Hi team, I am a ${userYear || "current"} ${
+    userBranch || "engineering"
+  } student actively building with ${skillsList}. I'm reaching out regarding the ${role} opportunity ${org}, as my background directly aligns with your requirements. Recently, I've applied these skills to deliver high-quality technical projects and problem-solve under tight deadlines. I would welcome the opportunity to discuss how my technical foundation can contribute to your team.`;
+}
+
 // Reusable Spotlight Card with dynamic radial cursor glow & top-lit border
 function SpotlightCard({
   children,
   className = "",
+  isSelected = false,
+  onClick,
 }: {
   children: React.ReactNode;
   className?: string;
+  isSelected?: boolean;
+  onClick?: () => void;
 }) {
   const cardRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -74,10 +101,15 @@ function SpotlightCard({
   return (
     <div
       ref={cardRef}
+      onClick={onClick}
       onMouseMove={handleMouseMove}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className={`relative overflow-hidden rounded-xl border border-white/[0.08] hover:border-white/[0.16] bg-zinc-900/60 transition-colors shadow-sm ${className}`}
+      className={`relative overflow-hidden rounded-xl border transition-all shadow-sm ${
+        isSelected
+          ? "border-emerald-500/80 ring-1 ring-emerald-500/60 shadow-[0_0_20px_rgba(16,185,129,0.18)] bg-zinc-900/90"
+          : "border-white/[0.08] hover:border-white/[0.18] bg-zinc-900/60"
+      } ${className}`}
     >
       {isHovered && (
         <div
@@ -130,8 +162,22 @@ export default function Home() {
   const [isDiagnosticsOpen, setIsDiagnosticsOpen] = useState(false);
   const [copiedQuery, setCopiedQuery] = useState<string | null>(null);
 
+  // Phase 3: Slide-Over Drawer & Keyboard Navigation
+  const [selectedOpportunity, setSelectedOpportunity] = useState<any | null>(null);
+  const [keyboardIndex, setKeyboardIndex] = useState<number>(-1);
+  const [pitchText, setPitchText] = useState<string>("");
+  const [copiedPitch, setCopiedPitch] = useState(false);
+
   const branchRef = useRef<HTMLDivElement>(null);
   const skillRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  // Filtered views
+  const visibleDiscoverOpps = opportunities.filter((o) => actionStatuses[o.name] !== "rejected");
+  const appliedOpps = [
+    ...opportunities.filter((o) => actionStatuses[o.name] === "applied"),
+    ...savedOpportunities.filter((o) => actionStatuses[o.name] === "applied"),
+  ].filter((v, i, a) => a.findIndex((t) => t.name === v.name) === i);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -170,6 +216,69 @@ export default function Home() {
     }
   }, []);
 
+  // Update pitch when selected opportunity changes
+  useEffect(() => {
+    if (selectedOpportunity) {
+      setPitchText(generatePitch(selectedOpportunity, branch, year, selectedSkills));
+      setCopiedPitch(false);
+    }
+  }, [selectedOpportunity, branch, year, selectedSkills]);
+
+  // Global Keyboard Shortcuts (j / k / s / Enter / Escape)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT" ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      if (e.key === "Escape") {
+        if (selectedOpportunity) {
+          setSelectedOpportunity(null);
+        } else {
+          setKeyboardIndex(-1);
+        }
+        return;
+      }
+
+      if (activeTab !== "discover" || visibleDiscoverOpps.length === 0) return;
+
+      if (e.key === "j" || e.key === "J") {
+        e.preventDefault();
+        setKeyboardIndex((prev) => {
+          const next = prev < visibleDiscoverOpps.length - 1 ? prev + 1 : 0;
+          cardRefs.current[next]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          return next;
+        });
+      } else if (e.key === "k" || e.key === "K") {
+        e.preventDefault();
+        setKeyboardIndex((prev) => {
+          const next = prev > 0 ? prev - 1 : visibleDiscoverOpps.length - 1;
+          cardRefs.current[next]?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+          return next;
+        });
+      } else if (e.key === "Enter") {
+        if (keyboardIndex >= 0 && keyboardIndex < visibleDiscoverOpps.length) {
+          e.preventDefault();
+          setSelectedOpportunity(visibleDiscoverOpps[keyboardIndex]);
+        }
+      } else if (e.key === "s" || e.key === "S") {
+        if (keyboardIndex >= 0 && keyboardIndex < visibleDiscoverOpps.length) {
+          e.preventDefault();
+          handleSaveOpp(visibleDiscoverOpps[keyboardIndex]);
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [visibleDiscoverOpps, keyboardIndex, selectedOpportunity, activeTab]);
+
   const filteredBranches = BRANCHES.filter((b) =>
     b.toLowerCase().includes(branchSearch.toLowerCase())
   );
@@ -205,9 +314,10 @@ export default function Home() {
 
     setStatus("searching");
     setActiveTab("discover");
-    setIsDiagnosticsOpen(true); // Auto-expand live diagnostics when search triggers
+    setIsDiagnosticsOpen(true);
     setOpportunities([]);
     setQueriesUsed([]);
+    setKeyboardIndex(-1);
 
     const verifyingTimer = setTimeout(() => setStatus("verifying"), 3500);
 
@@ -359,6 +469,13 @@ export default function Home() {
     setTimeout(() => setCopiedQuery(null), 2000);
   };
 
+  const handleCopyPitch = () => {
+    if (!pitchText) return;
+    navigator.clipboard.writeText(pitchText);
+    setCopiedPitch(true);
+    setTimeout(() => setCopiedPitch(false), 2500);
+  };
+
   const isFormValid = Boolean(branch && year && selectedSkills.length > 0 && goal);
   const isLoading = status === "searching" || status === "verifying";
 
@@ -366,15 +483,8 @@ export default function Home() {
   const savedCount = savedOpportunities.length;
   const appliedCount = Object.values(actionStatuses).filter((s) => s === "applied").length;
 
-  // Filtered views
-  const visibleDiscoverOpps = opportunities.filter((o) => actionStatuses[o.name] !== "rejected");
-  const appliedOpps = [
-    ...opportunities.filter((o) => actionStatuses[o.name] === "applied"),
-    ...savedOpportunities.filter((o) => actionStatuses[o.name] === "applied"),
-  ].filter((v, i, a) => a.findIndex((t) => t.name === v.name) === i);
-
   return (
-    <div className="min-h-screen bg-[#09090b] text-[#f4f4f6] relative selection:bg-emerald-500/20 selection:text-white">
+    <div className="min-h-screen bg-[#09090b] text-[#f4f4f6] relative selection:bg-emerald-500/20 selection:text-white pb-16">
       {/* ── Fixed top-center subtle ambient emerald glow ── */}
       <div
         className="pointer-events-none fixed inset-0 z-0"
@@ -397,7 +507,7 @@ export default function Home() {
             <div className="flex items-center gap-1.5">
               <span className="font-semibold text-sm tracking-tight text-white">Radar</span>
               <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 border border-white/[0.08] px-1.5 py-0.5 rounded bg-zinc-900/60">
-                1waygo
+                v2.1
               </span>
             </div>
           </div>
@@ -461,7 +571,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* ── Main Container ── */}
+      {/* ── Main Layout ── */}
       <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-8 items-start">
 
@@ -542,7 +652,6 @@ export default function Home() {
                   Skills &amp; Technologies
                 </label>
 
-                {/* Animated Interactive Skill Chips */}
                 {selectedSkills.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-2.5">
                     <AnimatePresence mode="popLayout">
@@ -704,7 +813,7 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Primary CTA Polish: Tactile press, hover shimmer & spinning radar */}
+              {/* Primary CTA */}
               <motion.button
                 type="submit"
                 disabled={isLoading || !isFormValid}
@@ -734,10 +843,9 @@ export default function Home() {
             {/* TAB 1: DISCOVER */}
             {activeTab === "discover" && (
               <>
-                {/* ── INTERACTIVE RADAR DIAGNOSTICS (Framer Motion Accordion) ── */}
+                {/* Live Radar Diagnostics */}
                 {(isLoading || queriesUsed.length > 0) && (
                   <div className="border border-white/[0.08] rounded-xl bg-zinc-900/60 backdrop-blur-md overflow-hidden shadow-sm">
-                    {/* Accordion Header */}
                     <button
                       type="button"
                       onClick={() => setIsDiagnosticsOpen((prev) => !prev)}
@@ -769,7 +877,6 @@ export default function Home() {
                       </div>
                     </button>
 
-                    {/* Accordion Body with Smooth Framer Motion Collapse */}
                     <AnimatePresence initial={false}>
                       {isDiagnosticsOpen && (
                         <motion.div
@@ -780,9 +887,7 @@ export default function Home() {
                           transition={{ type: "spring", stiffness: 350, damping: 30 }}
                           className="overflow-hidden border-t border-white/[0.06] bg-zinc-950/70 p-4 space-y-4"
                         >
-                          {/* Terminal-style Step Progression */}
                           <div className="space-y-2 font-mono text-xs">
-                            {/* Step 1: Profile Parsing */}
                             <div className="flex items-center gap-2">
                               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                               <span className="text-zinc-300">
@@ -793,7 +898,6 @@ export default function Home() {
                               </span>
                             </div>
 
-                            {/* Step 2: Semantic Queries */}
                             <div className="flex items-center gap-2">
                               {status === "searching" ? (
                                 <Loader2 className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
@@ -805,7 +909,6 @@ export default function Home() {
                               </span>
                             </div>
 
-                            {/* Step 3: Verifying Deadlines & URLs */}
                             <div className="flex items-center gap-2">
                               {status === "verifying" ? (
                                 <Loader2 className="w-3.5 h-3.5 text-emerald-400 animate-spin" />
@@ -828,7 +931,6 @@ export default function Home() {
                             </div>
                           </div>
 
-                          {/* Monospace Copyable Pill Badges */}
                           {queriesUsed.length > 0 && (
                             <div className="pt-3 border-t border-white/[0.06]">
                               <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 mb-2">
@@ -911,7 +1013,7 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* Results Count Header */}
+                {/* Results Header */}
                 {status === "done" && visibleDiscoverOpps.length > 0 && (
                   <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
                     <div className="flex items-center gap-2">
@@ -926,7 +1028,7 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* ── STAGGERED SPRING ENTRANCE & MOUSE-TRACKING SPOTLIGHT CARDS ── */}
+                {/* ── Opportunity Cards List ── */}
                 {status === "done" && (
                   <div className="space-y-4">
                     <AnimatePresence mode="popLayout">
@@ -934,11 +1036,15 @@ export default function Home() {
                         const isSaved = actionStatuses[opp.name] === "saved";
                         const isApplied = actionStatuses[opp.name] === "applied";
                         const matchScore = getMatchScore(opp.name);
+                        const isCardHighlighted = keyboardIndex === idx;
 
                         return (
                           <motion.div
                             key={opp.name}
                             layout
+                            ref={(el) => {
+                              cardRefs.current[idx] = el;
+                            }}
                             initial={{ opacity: 0, scale: 0.95, y: 15 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
@@ -949,7 +1055,11 @@ export default function Home() {
                               delay: idx * 0.05,
                             }}
                           >
-                            <SpotlightCard className="p-5">
+                            <SpotlightCard
+                              isSelected={isCardHighlighted}
+                              onClick={() => setSelectedOpportunity(opp)}
+                              className="p-5 cursor-pointer group"
+                            >
                               {/* Top Meta Row */}
                               <div className="flex items-start justify-between gap-3 mb-2">
                                 <div className="flex items-center gap-2 flex-wrap">
@@ -963,15 +1073,12 @@ export default function Home() {
                                   )}
                                 </div>
 
-                                {/* Top-right badges: Match score & Deadline */}
                                 <div className="flex items-center gap-2 shrink-0">
-                                  {/* Match Score Badge */}
                                   <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 font-semibold flex items-center gap-1">
                                     <Sparkles className="w-2.5 h-2.5 text-emerald-400" />
                                     <span>{matchScore}% Fit</span>
                                   </span>
 
-                                  {/* Deadline */}
                                   <div className="text-[11px] font-mono text-zinc-400 bg-zinc-950/60 px-2 py-0.5 rounded border border-white/[0.04]">
                                     <span className="text-zinc-500 mr-1">Due:</span>
                                     <span className="text-zinc-200">{opp.deadline || "Open"}</span>
@@ -979,41 +1086,44 @@ export default function Home() {
                                 </div>
                               </div>
 
-                              {/* Opportunity Title */}
-                              <h3 className="text-base font-semibold text-white tracking-tight mb-2">
+                              {/* Title */}
+                              <h3 className="text-base font-semibold text-white tracking-tight mb-1.5 group-hover:text-emerald-300 transition-colors">
                                 {opp.name}
                               </h3>
 
-                              {/* Description */}
+                              {/* Description (Clamped to line-clamp-2 for card height consistency) */}
                               {opp.description && (
-                                <p className="text-xs text-zinc-300 leading-relaxed mb-3">
+                                <p className="text-xs text-zinc-400 leading-relaxed mb-3 line-clamp-2">
                                   {opp.description}
                                 </p>
                               )}
 
-                              {/* Time commitment */}
+                              {/* Commitment */}
                               {opp.time_commitment && (
                                 <div className="text-[11px] text-zinc-400 flex items-center gap-1.5 mb-3 font-mono">
-                                  <span className="text-zinc-500">Commitment:</span>
-                                  <span className="text-zinc-300">{opp.time_commitment}</span>
+                                  <Clock className="w-3 h-3 text-zinc-500" />
+                                  <span>{opp.time_commitment}</span>
                                 </div>
                               )}
 
                               {/* Visual Match Callout Box */}
                               {opp.reason && (
-                                <div className="p-3.5 rounded-r-lg bg-emerald-950/20 border-l-2 border-emerald-500/70 text-xs text-zinc-300 mb-4">
+                                <div className="p-3 rounded-r-lg bg-emerald-950/20 border-l-2 border-emerald-500/70 text-xs text-zinc-300 mb-4">
                                   <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold mb-1">
                                     <Sparkles className="w-3 h-3 text-emerald-400" />
                                     <span>Match Reason</span>
                                   </div>
-                                  <p className="leading-relaxed text-zinc-300">{opp.reason}</p>
+                                  <p className="leading-relaxed text-zinc-300 line-clamp-2">{opp.reason}</p>
                                 </div>
                               )}
 
-                              {/* Stateful Action Buttons */}
-                              <div className="pt-3 border-t border-white/[0.06] flex items-center justify-between gap-3">
+                              {/* Action Footer */}
+                              <div
+                                className="pt-3 border-t border-white/[0.06] flex items-center justify-between gap-3"
+                                onClick={(e) => e.stopPropagation()} // Prevent card body click when using buttons
+                              >
                                 <div className="flex items-center gap-1.5">
-                                  {/* Save button with active animation */}
+                                  {/* Save */}
                                   <motion.button
                                     whileTap={{ scale: 0.96 }}
                                     onClick={() => handleSaveOpp(opp)}
@@ -1036,7 +1146,7 @@ export default function Home() {
                                     )}
                                   </motion.button>
 
-                                  {/* Mark Applied button with active animation */}
+                                  {/* Mark Applied */}
                                   <motion.button
                                     whileTap={{ scale: 0.96 }}
                                     onClick={() =>
@@ -1061,7 +1171,7 @@ export default function Home() {
                                     )}
                                   </motion.button>
 
-                                  {/* Hide button (triggers smooth spring exit) */}
+                                  {/* Hide */}
                                   <button
                                     onClick={() => updateStatus(opp, "rejected")}
                                     className="text-xs px-2 py-1 text-zinc-500 hover:text-red-400 transition-colors flex items-center gap-1"
@@ -1072,16 +1182,23 @@ export default function Home() {
                                   </button>
                                 </div>
 
-                                {/* Application Link */}
-                                <a
-                                  href={opp.link}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="btn-secondary text-xs px-3 py-1.5 font-medium flex items-center gap-1 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg border border-white/[0.08]"
-                                >
-                                  <span>Apply</span>
-                                  <ArrowUpRight className="w-3 h-3 text-zinc-400" />
-                                </a>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => setSelectedOpportunity(opp)}
+                                    className="text-xs text-zinc-400 hover:text-white px-2 py-1 font-mono"
+                                  >
+                                    Inspect ↵
+                                  </button>
+                                  <a
+                                    href={opp.link}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="btn-secondary text-xs px-3 py-1.5 font-medium flex items-center gap-1 bg-zinc-800 hover:bg-zinc-700 text-white rounded-lg border border-white/[0.08]"
+                                  >
+                                    <span>Apply</span>
+                                    <ArrowUpRight className="w-3 h-3 text-zinc-400" />
+                                  </a>
+                                </div>
                               </div>
                             </SpotlightCard>
                           </motion.div>
@@ -1117,7 +1234,8 @@ export default function Home() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.95 }}
-                          className="bg-zinc-950/60 border border-white/[0.06] rounded-xl p-3.5 flex items-center justify-between gap-4"
+                          className="bg-zinc-950/60 border border-white/[0.06] rounded-xl p-3.5 flex items-center justify-between gap-4 cursor-pointer hover:border-white/[0.12] transition-colors"
+                          onClick={() => setSelectedOpportunity(opp)}
                         >
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 text-xs">
@@ -1131,7 +1249,10 @@ export default function Home() {
                             </p>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div
+                            className="flex items-center gap-2 shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <button
                               onClick={() => handleSaveOpp(opp)}
                               className="text-xs text-red-400 hover:text-red-300 px-2 py-1"
@@ -1152,7 +1273,7 @@ export default function Home() {
                       ))}
                     </AnimatePresence>
 
-                    {/* Email Digest Trigger */}
+                    {/* Email Digest */}
                     <div className="pt-4 mt-5 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-3">
                       <div className="text-left w-full sm:w-auto">
                         <p className="text-xs font-medium text-white">Export to Email</p>
@@ -1210,7 +1331,8 @@ export default function Home() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.95 }}
-                          className="bg-zinc-950/60 border border-white/[0.06] rounded-xl p-3.5 flex items-center justify-between gap-4"
+                          className="bg-zinc-950/60 border border-white/[0.06] rounded-xl p-3.5 flex items-center justify-between gap-4 cursor-pointer hover:border-white/[0.12] transition-colors"
+                          onClick={() => setSelectedOpportunity(opp)}
                         >
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 text-xs">
@@ -1224,7 +1346,10 @@ export default function Home() {
                             </p>
                           </div>
 
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div
+                            className="flex items-center gap-2 shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <button
                               onClick={() => updateStatus(opp, "")}
                               className="text-xs text-zinc-400 hover:text-white px-2 py-1"
@@ -1264,6 +1389,272 @@ export default function Home() {
           </p>
         </footer>
       </div>
+
+      {/* ── FLOATING KEYBOARD SHORTCUTS HINTS PILL ── */}
+      <div className="fixed bottom-4 right-4 z-30 hidden md:flex items-center gap-3 px-3.5 py-2 rounded-xl bg-zinc-950/90 border border-white/10 shadow-2xl backdrop-blur-md text-[11px] font-mono text-zinc-400">
+        <span className="flex items-center gap-1">
+          <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-white/10 text-[10px]">J</kbd>
+          <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-white/10 text-[10px]">K</kbd>
+          <span className="text-zinc-500">Navigate</span>
+        </span>
+        <span className="text-zinc-700">•</span>
+        <span className="flex items-center gap-1">
+          <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-white/10 text-[10px]">S</kbd>
+          <span className="text-zinc-500">Save</span>
+        </span>
+        <span className="text-zinc-700">•</span>
+        <span className="flex items-center gap-1">
+          <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-white/10 text-[10px]">↵</kbd>
+          <span className="text-zinc-500">Inspect</span>
+        </span>
+        <span className="text-zinc-700">•</span>
+        <span className="flex items-center gap-1">
+          <kbd className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-200 border border-white/10 text-[10px]">Esc</kbd>
+          <span className="text-zinc-500">Close</span>
+        </span>
+      </div>
+
+      {/* ── PHASE 3: SLIDE-OVER OPPORTUNITY DETAIL DRAWER ── */}
+      <AnimatePresence>
+        {selectedOpportunity && (
+          <div className="fixed inset-0 z-50 flex justify-end">
+            {/* Dimmed Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setSelectedOpportunity(null)}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+            />
+
+            {/* Slide-over Right Panel */}
+            <motion.aside
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 350 }}
+              className="relative z-10 w-full max-w-lg bg-zinc-950/95 backdrop-blur-xl border-l border-white/10 flex flex-col shadow-2xl h-full overflow-hidden"
+            >
+              {/* Drawer Top Header */}
+              <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between shrink-0 bg-zinc-950/80">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono uppercase tracking-wider px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-white/[0.08]">
+                    {selectedOpportunity.type}
+                  </span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 font-semibold flex items-center gap-1">
+                    <Sparkles className="w-2.5 h-2.5 text-emerald-400" />
+                    <span>{getMatchScore(selectedOpportunity.name)}% Fit</span>
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-mono text-zinc-400">
+                    Due: {selectedOpportunity.deadline || "Open"}
+                  </span>
+                  <button
+                    onClick={() => setSelectedOpportunity(null)}
+                    className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800/80 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Scrollable Drawer Body */}
+              <div className="px-6 py-5 overflow-y-auto space-y-6 flex-1 text-xs">
+                
+                {/* Title & Organization */}
+                <div>
+                  <h2 className="text-xl font-bold text-white tracking-tight leading-snug mb-1">
+                    {selectedOpportunity.name}
+                  </h2>
+                  {selectedOpportunity.organization && (
+                    <p className="text-sm font-medium text-emerald-400">
+                      {selectedOpportunity.organization}
+                    </p>
+                  )}
+                  {selectedOpportunity.time_commitment && (
+                    <div className="flex items-center gap-1.5 text-zinc-400 mt-2 font-mono">
+                      <Clock className="w-3.5 h-3.5 text-zinc-500" />
+                      <span>{selectedOpportunity.time_commitment}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Full Uncut Description */}
+                <div>
+                  <h4 className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 mb-2 font-semibold">
+                    Full Overview
+                  </h4>
+                  <p className="text-zinc-300 leading-relaxed text-xs whitespace-pre-line bg-zinc-900/50 p-4 rounded-xl border border-white/[0.06]">
+                    {selectedOpportunity.description || "No full description provided."}
+                  </p>
+                </div>
+
+                {/* Visual Match Callout */}
+                {selectedOpportunity.reason && (
+                  <div className="p-4 rounded-xl bg-emerald-950/20 border-l-2 border-emerald-500/80">
+                    <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold mb-1">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Why This Fits Your Profile</span>
+                    </div>
+                    <p className="text-zinc-200 leading-relaxed">
+                      {selectedOpportunity.reason}
+                    </p>
+                  </div>
+                )}
+
+                {/* Skill Alignment Matrix */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5">
+                      <Layers className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Skill Alignment Matrix</span>
+                    </h4>
+                    <span className="text-[10px] font-mono text-zinc-500">
+                      {selectedSkills.length} matches
+                    </span>
+                  </div>
+
+                  <div className="bg-zinc-900/40 p-3.5 rounded-xl border border-white/[0.06] space-y-3">
+                    {/* User's entered skills in emerald */}
+                    <div>
+                      <span className="text-[10px] font-mono text-zinc-500 block mb-1.5 uppercase">
+                        Your Matching Profile Skills
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedSkills.map((s) => (
+                          <span
+                            key={s}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium bg-emerald-500/10 border border-emerald-500/30 text-emerald-300"
+                          >
+                            <Check className="w-3 h-3 text-emerald-400" />
+                            <span>{s}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Recommended skills in neutral zinc */}
+                    <div className="pt-2 border-t border-white/[0.06]">
+                      <span className="text-[10px] font-mono text-zinc-500 block mb-1.5 uppercase">
+                        Recommended Additional Skills
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {["Production Testing", "System Design", "Git Workflow", "Technical Communication"].map((rec) => (
+                          <span
+                            key={rec}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] bg-zinc-800/80 border border-white/[0.06] text-zinc-400"
+                          >
+                            <span>+ {rec}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Toolkit: Customized Cold Outreach Pitch Generator */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Cold Outreach Pitch Generator</span>
+                    </h4>
+                    <span className="text-[10px] font-mono text-zinc-500">Custom tailored</span>
+                  </div>
+
+                  <div className="bg-zinc-900/80 border border-white/[0.08] rounded-xl p-4 space-y-3">
+                    <p className="text-zinc-200 text-xs leading-relaxed italic bg-zinc-950/60 p-3 rounded-lg border border-white/[0.04]">
+                      &quot;{pitchText}&quot;
+                    </p>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10px] font-mono text-zinc-500">
+                        Links your branch ({branch || "Engineering"}), {year || "year"}, and skills.
+                      </span>
+
+                      <button
+                        onClick={handleCopyPitch}
+                        className={`text-xs px-3 py-1.5 rounded-lg border flex items-center gap-1.5 transition-all font-medium ${
+                          copiedPitch
+                            ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300 font-semibold"
+                            : "bg-white text-zinc-950 hover:bg-zinc-200 border-transparent shadow-sm"
+                        }`}
+                      >
+                        {copiedPitch ? (
+                          <>
+                            <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Copied to Clipboard!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5 text-zinc-800" />
+                            <span>Copy Note</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Drawer Bottom Action Bar */}
+              <div className="px-6 py-4 border-t border-white/[0.08] bg-zinc-950 flex items-center justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleSaveOpp(selectedOpportunity)}
+                    className={`text-xs px-3 py-2 rounded-lg border flex items-center gap-1.5 transition-colors ${
+                      actionStatuses[selectedOpportunity.name] === "saved"
+                        ? "bg-amber-500/10 border-amber-500/30 text-amber-300 font-semibold"
+                        : "border-white/[0.08] text-zinc-300 hover:text-white hover:border-white/[0.16] bg-zinc-900"
+                    }`}
+                  >
+                    <Bookmark className="w-3.5 h-3.5" />
+                    <span>
+                      {actionStatuses[selectedOpportunity.name] === "saved"
+                        ? "Saved"
+                        : "Save Opportunity"}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      updateStatus(
+                        selectedOpportunity,
+                        actionStatuses[selectedOpportunity.name] === "applied" ? "" : "applied"
+                      )
+                    }
+                    className={`text-xs px-3 py-2 rounded-lg border flex items-center gap-1.5 transition-colors ${
+                      actionStatuses[selectedOpportunity.name] === "applied"
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300 font-semibold"
+                        : "border-white/[0.08] text-zinc-300 hover:text-white hover:border-white/[0.16] bg-zinc-900"
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>
+                      {actionStatuses[selectedOpportunity.name] === "applied"
+                        ? "Applied"
+                        : "Mark Applied"}
+                    </span>
+                  </button>
+                </div>
+
+                <a
+                  href={selectedOpportunity.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-primary text-xs px-4 py-2 font-semibold flex items-center gap-1.5 bg-white text-zinc-950 rounded-lg shadow-sm hover:bg-zinc-200"
+                >
+                  <span>Launch Application</span>
+                  <ArrowUpRight className="w-3.5 h-3.5 text-zinc-800" />
+                </a>
+              </div>
+            </motion.aside>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
